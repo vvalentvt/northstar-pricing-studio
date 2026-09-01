@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+<rect width="100%" height="100%" fill="#f6f7f9"/>
+<text x="30" y="34" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#667085">Low-fidelity wireframe • Configure workspace</text>
+<rect x="20" y="50" width="1400" height="64" rx="0" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="48" y="90" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#18212f" text-anchor="start">NORTHSTAR PRICING STUDIO</text>
+<text x="1370" y="90" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#667085" text-anchor="end">Portfolio</text>
+<rect x="20" y="114" width="235" height="750" rx="0" fill="#1f2937" stroke="#1f2937" stroke-width="1"/>
+<text x="52" y="160" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">Home</text>
+<text x="52" y="210" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">Quotes</text>
+<text x="52" y="252" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">  All Quotes</text>
+<rect x="35" y="263" width="205" height="38" rx="6" fill="#344054" stroke="#344054" stroke-width="1"/>
+<text x="52" y="290" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" fill="#ffffff" text-anchor="start">  New Quote</text>
+<text x="52" y="340" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">Approvals</text>
+<text x="52" y="390" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">Pricing Rules</text>
+<line x1="40" y1="430" x2="235" y2="430" stroke="#475467" stroke-width="1"/>
+<text x="52" y="468" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#d0d5dd" text-anchor="start">About Project</text>
+<text x="290" y="150" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#18212f" text-anchor="start">Example Health Systems</text>
+<rect x="640" y="128" width="90" height="30" rx="15" fill="#eef2f6" stroke="#eef2f6" stroke-width="1"/>
+<text x="685.0" y="148" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#667085" text-anchor="middle">DRAFT</text>
+<text x="290" y="178" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#667085" text-anchor="start">Quote Q-00124 • Rule v0.1.0</text>
+<text x="300" y="220" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#2f6fed" text-anchor="start">✓</text>
+<text x="326" y="219" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#667085" text-anchor="start">1 Deal Setup</text>
+<line x1="450" y1="214" x2="515" y2="214" stroke="#d0d5dd" stroke-width="1"/>
+<text x="535" y="220" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#2f6fed" text-anchor="start">●</text>
+<text x="561" y="219" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#18212f" text-anchor="start">2 Configure</text>
+<line x1="685" y1="214" x2="750" y2="214" stroke="#d0d5dd" stroke-width="1"/>
+<text x="770" y="220" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#667085" text-anchor="start">○</text>
+<text x="796" y="219" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#667085" text-anchor="start">3 Review Pricing</text>
+<line x1="920" y1="214" x2="985" y2="214" stroke="#d0d5dd" stroke-width="1"/>
+<text x="1005" y="220" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#667085" text-anchor="start">○</text>
+<text x="1031" y="219" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#667085" text-anchor="start">4 Proposal</text>
+<rect x="290" y="250" width="760" height="575" rx="8" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<rect x="1070" y="250" width="315" height="575" rx="8" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="315" y="288" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">PACKAGE</text>
+<text x="315" y="320" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Subscription tier</text>
+<rect x="315" y="330" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="329" y="358" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">Growth</text>
+<text x="680" y="320" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Users</text>
+<rect x="680" y="330" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="694" y="358" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">8</text>
+<text x="680" y="396" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#667085" text-anchor="start">5 included • 3 additional users</text>
+<text x="315" y="440" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">DATA SCOPE</text>
+<text x="315" y="472" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Coverage</text>
+<rect x="315" y="482" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="329" y="510" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">North America</text>
+<text x="680" y="472" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Historical depth</text>
+<rect x="680" y="482" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="694" y="510" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">3 years</text>
+<text x="315" y="592" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">COMMERCIAL TERMS</text>
+<text x="315" y="624" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Contract term</text>
+<rect x="315" y="634" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="329" y="662" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">24 months</text>
+<text x="680" y="624" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Renewal</text>
+<rect x="680" y="634" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="694" y="662" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">No</text>
+<text x="315" y="746" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">DISCOUNT</text>
+<text x="315" y="778" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Requested discount</text>
+<rect x="315" y="788" width="330" height="44" rx="6" fill="#ffffff" stroke="#d0d5dd" stroke-width="1"/>
+<text x="329" y="816" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="400" fill="#18212f" text-anchor="start">5%</text>
+<text x="1095" y="287" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">QUOTE SUMMARY</text>
+<text x="1095" y="328" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#667085" text-anchor="start">Estimated price</text>
+<text x="1095" y="372" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" fill="#18212f" text-anchor="start">$61,750</text>
+<text x="1095" y="420" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#18212f" text-anchor="start">Growth</text>
+<text x="1095" y="450" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#18212f" text-anchor="start">8 users</text>
+<text x="1095" y="480" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#18212f" text-anchor="start">North America</text>
+<text x="1095" y="510" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#18212f" text-anchor="start">3 years history</text>
+<text x="1095" y="540" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="400" fill="#18212f" text-anchor="start">24-month term</text>
+<text x="1095" y="600" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#667085" text-anchor="start">Discount</text>
+<text x="1095" y="630" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#18212f" text-anchor="start">5%</text>
+<rect x="1095" y="650" width="155" height="30" rx="15" fill="#eaf7ef" stroke="#eaf7ef" stroke-width="1"/>
+<text x="1172.5" y="670" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#247a43" text-anchor="middle">✓ Within authority</text>
+<rect x="1180" y="770" width="170" height="44" rx="7" fill="#2f6fed" stroke="#2f6fed" stroke-width="1"/>
+<text x="1265.0" y="799" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">Calculate Quote</text>
+</svg>

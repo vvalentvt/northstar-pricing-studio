@@ -1,0 +1,49 @@
+version: "0.1.0"
+
+tiers:
+  core:
+    base_price: 25000
+  growth:
+    base_price: 45000
+  enterprise:
+    base_price: 75000
+
+users:
+  included: 5
+  price_per_additional_user: 1250
+
+coverage:
+  national: 0
+  north_america: 5000
+  global: 12000
+
+history_years:
+  1: 0
+  3: 4000
+  5: 7500
+
+contract_term:
+  12:
+    multiplier: 1.00
+  24:
+    multiplier: 0.96
+  36:
+    multiplier: 0.92
+
+premium_support:
+  false: 0
+  true: 8000
+
+implementation_services:
+  false: 0
+  true: 12000
+
+renewal:
+  false:
+    multiplier: 1.00
+  true:
+    multiplier: 0.98
+
+discount_policy:
+  max_self_service_percent: 10
+  max_allowed_percent: 25
