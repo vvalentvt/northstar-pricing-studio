@@ -134,6 +134,38 @@ Each section has:
 - Related inputs
 - Inline helper text where policy affects the choice
 
+### Budget context card
+
+Use when a negotiation target is known. Show:
+- Target budget
+- Current price
+- Budget gap or headroom
+- Short explanation that budget is a constraint, not a price override
+
+Do not style a budget gap as a blocking error; it is commercial context that may trigger negotiation.
+
+### Optimization recommendation card
+
+Each Budget Fit recommendation should include:
+- Human-readable option label
+- Final price
+- Variance to target budget
+- Must-have coverage
+- Major changes from baseline
+- Discount / approval state
+- Short ranking explanation
+- `Add to Compare` or equivalent explicit action
+
+System-generated recommendations should be labeled as such but should not use success styling merely because the system generated them.
+
+### Must-have / flexible selector
+
+Constraints must use explicit language:
+- **Must preserve** — hard constraint; optimizer may not change it below the declared minimum
+- **Flexible** — dimension the optimizer may vary
+
+Avoid ambiguous labels such as `Optimize this` or `Lock` without explanation.
+
 ### Summary rail
 
 Recommended content:
@@ -172,7 +204,7 @@ Prioritize:
 - Action
 
 ### Scenario comparison
-Rows are commercial attributes; columns are scenarios.
+Rows are commercial attributes; columns are scenarios. Include origin, budget variance, must-have coverage, and change-from-baseline when negotiation context exists.
 
 ### Rules view
 Use grouped read-only tables rather than exposing raw YAML.
@@ -192,6 +224,8 @@ Use grouped read-only tables rather than exposing raw YAML.
 - “Approval required: requested discount exceeds the 10% self-service threshold.”
 - “3 users above the 5 included users.”
 - “Proposal is locked until the pricing exception is approved.”
+- “Current configuration is $14,964 above the customer budget.”
+- “This option preserves all must-have requirements and removes premium support.”
 
 ### Avoid
 - “Success!”
@@ -211,6 +245,8 @@ Because Streamlit reruns the script frequently, UI state should be explicit and 
 - Current quote configuration
 - Calculated result
 - Current workflow step
+- Negotiation context (target budget, must-haves, flexible attributes)
+- Budget Fit recommendations
 - Scenarios
 - Selected scenario
 
@@ -225,9 +261,10 @@ Build the experience in layers:
 2. Quote configuration hierarchy
 3. Pricing review
 4. Approval state
-5. Scenario state
-6. Persistence/history
-7. Proposal generation
+5. Quote / version + scenario state
+6. Budget Fit negotiation flow
+7. Persistence/history
+8. Proposal generation
 
 ---
 

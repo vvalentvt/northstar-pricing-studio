@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980">
+  <rect width="1440" height="980" fill="#f7f7f7"/>
+  <rect x="0" y="0" width="220" height="980" fill="#eef0f2" stroke="#60656b"/>
+  <text x="28" y="45" font-family="Arial" font-size="20" font-weight="bold" fill="#25282b">NORTHSTAR</text>
+  <text x="28" y="70" font-family="Arial" font-size="12" fill="#555">PRICING STUDIO</text>
+  <text x="28" y="135" font-family="Arial" font-size="15">Home</text>
+  <text x="28" y="175" font-family="Arial" font-size="15" font-weight="bold">Quotes</text>
+  <text x="48" y="207" font-family="Arial" font-size="13">All Quotes</text>
+  <text x="48" y="235" font-family="Arial" font-size="13">New Quote</text>
+  <text x="28" y="285" font-family="Arial" font-size="15">Approvals</text>
+  <text x="28" y="325" font-family="Arial" font-size="15">Pricing Rules</text>
+
+  <text x="260" y="55" font-family="Arial" font-size="27" font-weight="bold">Optimize to Budget</text>
+  <text x="260" y="82" font-family="Arial" font-size="14" fill="#555">Example Health Systems • Quote Q-00124 • based on v1</text>
+  <rect x="1105" y="32" width="125" height="34" rx="5" fill="#fff" stroke="#60656b"/>
+  <text x="1125" y="54" font-family="Arial" font-size="13">BASELINE $59,964</text>
+  <rect x="1245" y="32" width="155" height="34" rx="5" fill="#fff" stroke="#60656b"/>
+  <text x="1263" y="54" font-family="Arial" font-size="13" font-weight="bold">TARGET $45,000</text>
+
+  <rect x="260" y="115" width="520" height="330" rx="6" fill="#fff" stroke="#7a7f84"/>
+  <text x="285" y="150" font-family="Arial" font-size="15" font-weight="bold">CUSTOMER CONSTRAINTS</text>
+  <text x="285" y="190" font-family="Arial" font-size="13">Target budget</text>
+  <rect x="285" y="202" width="260" height="42" rx="4" fill="#fafafa" stroke="#777"/>
+  <text x="303" y="228" font-family="Arial" font-size="15">$45,000</text>
+  <text x="285" y="280" font-family="Arial" font-size="13" font-weight="bold">Must preserve</text>
+  <text x="300" y="310" font-family="Arial" font-size="13">☑ Growth / core package</text>
+  <text x="300" y="337" font-family="Arial" font-size="13">☑ At least 24 months history</text>
+  <text x="300" y="364" font-family="Arial" font-size="13">☑ North America coverage</text>
+  <text x="545" y="280" font-family="Arial" font-size="13" font-weight="bold">Flexible</text>
+  <text x="560" y="310" font-family="Arial" font-size="13">☑ Users</text>
+  <text x="560" y="337" font-family="Arial" font-size="13">☑ Premium support</text>
+  <text x="560" y="364" font-family="Arial" font-size="13">☑ Contract term</text>
+  <text x="560" y="391" font-family="Arial" font-size="13">☐ Coverage</text>
+
+  <rect x="805" y="115" width="595" height="330" rx="6" fill="#fff" stroke="#7a7f84"/>
+  <text x="830" y="150" font-family="Arial" font-size="15" font-weight="bold">BUDGET CONTEXT</text>
+  <text x="830" y="195" font-family="Arial" font-size="14">Current price</text>
+  <text x="1340" y="195" text-anchor="end" font-family="Arial" font-size="16">$59,964</text>
+  <text x="830" y="232" font-family="Arial" font-size="14">Target budget</text>
+  <text x="1340" y="232" text-anchor="end" font-family="Arial" font-size="16">$45,000</text>
+  <line x1="830" y1="252" x2="1340" y2="252" stroke="#999"/>
+  <text x="830" y="288" font-family="Arial" font-size="14" font-weight="bold">Gap</text>
+  <text x="1340" y="288" text-anchor="end" font-family="Arial" font-size="18" font-weight="bold">-$14,964</text>
+  <text x="830" y="335" font-family="Arial" font-size="12" fill="#555">Northstar will vary only flexible attributes and price</text>
+  <text x="830" y="355" font-family="Arial" font-size="12" fill="#555">every candidate using the active pricing engine.</text>
+  <rect x="1190" y="385" width="150" height="42" rx="5" fill="#e8eaec" stroke="#555"/>
+  <text x="1265" y="411" text-anchor="middle" font-family="Arial" font-size="14" font-weight="bold">Find Options</text>
+
+  <text x="260" y="495" font-family="Arial" font-size="16" font-weight="bold">RECOMMENDATIONS</text>
+  <g font-family="Arial">
+    <rect x="260" y="520" width="355" height="360" rx="6" fill="#fff" stroke="#555" stroke-width="2"/>
+    <text x="285" y="555" font-size="15" font-weight="bold">A — Recommended</text>
+    <text x="285" y="600" font-size="28" font-weight="bold">$44,750</text>
+    <text x="285" y="625" font-size="12" fill="#555">$250 under budget</text>
+    <text x="285" y="670" font-size="13">100% must-haves</text>
+    <text x="285" y="698" font-size="13">No discount • Within authority</text>
+    <text x="285" y="740" font-size="13" font-weight="bold">Changes from baseline</text>
+    <text x="300" y="768" font-size="13">• Standard support</text>
+    <text x="300" y="794" font-size="13">• 6 users</text>
+    <rect x="285" y="825" width="145" height="36" rx="4" fill="#f2f2f2" stroke="#777"/>
+    <text x="357" y="848" text-anchor="middle" font-size="12">Add to Compare</text>
+
+    <rect x="640" y="520" width="355" height="360" rx="6" fill="#fff" stroke="#777"/>
+    <text x="665" y="555" font-size="15" font-weight="bold">B — Preserve Scope</text>
+    <text x="665" y="600" font-size="28" font-weight="bold">$42,900</text>
+    <text x="665" y="625" font-size="12" fill="#555">$2,100 under budget</text>
+    <text x="665" y="670" font-size="13">100% must-haves</text>
+    <text x="665" y="698" font-size="13">No discount • Within authority</text>
+    <text x="665" y="740" font-size="13" font-weight="bold">Changes from baseline</text>
+    <text x="680" y="768" font-size="13">• 6 users</text>
+    <text x="680" y="794" font-size="13">• 36-month term</text>
+    <rect x="665" y="825" width="145" height="36" rx="4" fill="#f2f2f2" stroke="#777"/>
+    <text x="737" y="848" text-anchor="middle" font-size="12">Add to Compare</text>
+
+    <rect x="1020" y="520" width="380" height="360" rx="6" fill="#fff" stroke="#777"/>
+    <text x="1045" y="555" font-size="15" font-weight="bold">C — Max Budget Use</text>
+    <text x="1045" y="600" font-size="28" font-weight="bold">$44,950</text>
+    <text x="1045" y="625" font-size="12" fill="#555">$50 under budget</text>
+    <text x="1045" y="670" font-size="13">100% must-haves</text>
+    <text x="1045" y="698" font-size="13">5% discount • Within authority</text>
+    <text x="1045" y="740" font-size="13" font-weight="bold">Changes from baseline</text>
+    <text x="1060" y="768" font-size="13">• 7 users</text>
+    <text x="1060" y="794" font-size="13">• Standard support</text>
+    <rect x="1045" y="825" width="145" height="36" rx="4" fill="#f2f2f2" stroke="#777"/>
+    <text x="1117" y="848" text-anchor="middle" font-size="12">Add to Compare</text>
+  </g>
+  <text x="260" y="925" font-family="Arial" font-size="12" fill="#555">Recommendations are decision support. A user must select a scenario before it becomes a saved quote version or proposal basis.</text>
+</svg>

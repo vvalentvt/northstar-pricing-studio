@@ -12,13 +12,14 @@ The pricing engine is therefore a capability inside the product rather than the 
 
 ## Product thesis
 
-Commercial teams do not primarily need another place to enter pricing inputs. They need a governed workspace that helps them answer five questions quickly:
+Commercial teams do not primarily need another place to enter pricing inputs. They need a governed workspace that helps them answer six questions quickly:
 
 1. **What am I selling?**
 2. **What should it cost?**
 3. **Why is that the price?**
-4. **Can I approve this myself?**
-5. **Is this deal ready to send to the customer?**
+4. **If the customer cannot buy this configuration, what can they buy within budget?**
+5. **Can I approve this myself?**
+6. **Is this deal ready to send to the customer?**
 
 Northstar Pricing Studio should make those answers visible throughout the workflow.
 
@@ -38,6 +39,8 @@ When I am preparing a commercial offer, I want to configure a valid package and 
 - Confidence that the quote follows policy
 - A clear path when an exception requires approval
 - Proposal-ready output without re-entering data
+- A structured way to respond when a customer reveals a fixed budget
+- Recommendations that preserve must-have customer requirements before defaulting to discount
 
 ### 2. Pricing / Commercial Strategy — policy owner
 
@@ -89,6 +92,12 @@ A saved quote should capture enough information to understand what was configure
 ### 7. Design for the standard path; make exceptions deliberate
 Most standard quotes should feel fast. Nonstandard quotes should not be impossible, but the interface should make exception handling explicit.
 
+### 8. Configuration before concession
+When a customer cannot afford the current offer, Northstar should help the user explore valid scope, package, and term alternatives before treating discretionary discount as the only path to a lower price.
+
+### 9. Recommendations must be inspectable
+System-generated scenarios are decision support, not autonomous decisions. Users should see which constraints were preserved, what changed, how the candidate was priced, and why it was recommended.
+
 ---
 
 ## Product objects
@@ -98,14 +107,17 @@ The UX is organized around a small set of durable business objects.
 | Object | Purpose | Example attributes |
 | --- | --- | --- |
 | Account | Commercial customer context | Name, segment, region |
-| Quote | The governed pricing decision | Quote ID, owner, status, rule version |
+| Quote | Durable container for one commercial decision thread | Quote ID, owner, status, current version |
+| Quote Version | Immutable saved commercial state | Version number, origin, configuration snapshot, pricing snapshot |
 | Configuration | What is being sold | Tier, users, coverage, history, term, services |
-| Pricing Result | Calculated economics | List price, adjustments, subtotal, discount, final price |
+| Pricing Result | Calculated economics returned by the engine | List price, adjustments, subtotal, discount, final price |
+| Pricing Snapshot | Frozen pricing facts for a saved version | Rule version, adjustments, final price, approval state |
+| Negotiation Context | Customer constraints used to explore alternatives | Target budget, must-haves, flexible dimensions |
 | Approval | Exception decision | Reason, status, approver, comments |
-| Scenario | Alternative configuration within a deal | Baseline, Option B, Option C |
-| Proposal | Customer-facing output derived from an approved quote | Version, generated date, selected scenario |
+| Scenario | Alternative configuration within a deal | Label, origin, configuration, price, ranking explanation |
+| Proposal | Customer-facing output derived from an approved snapshot | Version, generated date, quote version, snapshot |
 
-The current code already supports the configuration and pricing-result concepts. Later phases can add persistence for the other objects without changing the core UX model.
+The current code already supports the configuration and pricing-result concepts. The next domain phase introduces Quote, QuoteVersion, PricingSnapshot, NegotiationContext, and Scenario before persistence. This prevents the UI from inventing state concepts ad hoc and gives Budget Fit, approval, and proposal generation a shared commercial model.
 
 ---
 
@@ -187,6 +199,18 @@ Always visible at the top of a quote:
 ```
 
 **Approval is a state, not necessarily a separate wizard step.** If a requested discount exceeds authority, the Review Pricing step changes to an approval-required state and the Proposal step remains locked until approval is satisfied.
+
+**Negotiation is a branch, not a mandatory fifth step.** From Review Pricing, a user can manually add a scenario or enter a target budget and launch Budget Fit. The resulting alternatives return to Scenario Comparison; the selected scenario then re-enters the normal approval/proposal path.
+
+```text
+1 Deal Setup → 2 Configure → 3 Review Pricing → 4 Proposal
+                               ↕
+                         Negotiate / Explore
+                          ├─ Manual Scenario
+                          └─ Optimize to Budget
+                                   ↓
+                          Compare Scenarios
+```
 
 ---
 
@@ -277,6 +301,17 @@ Base subscription
 
 Every non-zero adjustment should carry a plain-language explanation.
 
+**Negotiation entry point**
+
+When a customer budget is known, Review Pricing should also show:
+- Customer target budget
+- Current price
+- Budget gap / headroom
+- `Optimize to Budget` action
+- `Add Scenario` action for manual alternatives
+
+The budget is context, not a pricing input. Entering $45,000 must not cause the pricing engine to simply force the current configuration to $45,000.
+
 ### Screen 5 — Approval-required state
 
 **Purpose:** explain the exception without making the user reverse-engineer policy.
@@ -292,11 +327,38 @@ Display prominently:
 
 The first portfolio release can model the state without implementing a real approval backend.
 
-### Screen 6 — Scenario Comparison
+### Screen 6 — Budget Fit
 
-**Purpose:** support an authentic pricing conversation rather than forcing the user to overwrite one configuration repeatedly.
+**Purpose:** help the commercial user respond to a customer budget constraint by identifying strong valid configurations before defaulting to discretionary discount.
+
+**Inputs**
+- Target budget
+- Must-have attributes / minimum requirements
+- Flexible attributes the optimizer may change
+- Optional priorities when multiple solutions are valid
+
+**Results**
+Show up to three differentiated recommendations. Each should include:
+- Final price
+- Budget variance
+- Must-have coverage
+- Major configuration changes from the baseline
+- Discount and approval impact
+- Short explanation of why the scenario was surfaced
+
+**Behavior principles**
+- Every recommendation must be priced by the canonical pricing engine.
+- Hard requirements are gates, not soft preferences.
+- The optimizer may recommend scope/term/service changes; it should not silently invent a discount.
+- A generated recommendation is not the active quote until the user selects it.
+- If no valid configuration fits the budget, say so explicitly and show the closest useful next action rather than fabricate a result.
+
+### Screen 7 — Scenario Comparison
+
+**Purpose:** support an authentic pricing conversation rather than forcing the user to overwrite one configuration repeatedly. Scenario Comparison is the common destination for both manual alternatives and Budget Fit recommendations.
 
 Compare up to three scenarios across:
+- Scenario origin (manual / Budget Fit)
 - Tier
 - Users
 - Coverage
@@ -306,10 +368,13 @@ Compare up to three scenarios across:
 - Discount
 - Final price
 - Approval state
+- Budget variance when a target budget exists
+- Must-have coverage
+- Change from baseline
 
-The comparison should emphasize **differences**, not duplicate every field visually.
+The comparison should emphasize **differences**, not duplicate every field visually. System-generated recommendations should be clearly labeled but should not receive a visual treatment that implies they are automatically superior to user-created scenarios.
 
-### Screen 7 — Proposal Preview
+### Screen 8 — Proposal Preview
 
 **Purpose:** demonstrate that governed pricing becomes an operational commercial output.
 
@@ -324,7 +389,7 @@ Include:
 
 A preview is more valuable than immediately implementing a complex document generator. PDF/HTML generation can follow once this surface is designed.
 
-### Screen 8 — Pricing Rules (read-only first)
+### Screen 9 — Pricing Rules (read-only first)
 
 **Purpose:** make configurability and governance tangible to a technical/product reviewer.
 
@@ -430,6 +495,8 @@ The eventual Streamlit implementation should build a small reusable component la
 - Policy threshold indicator
 
 ### Inputs
+- Target-budget input with currency formatting
+- Must-have / flexible attribute selector
 - Labeled select
 - Numeric input with entitlement helper text
 - Toggle / checkbox for binary services
@@ -451,6 +518,7 @@ The eventual Streamlit implementation should build a small reusable component la
 
 ### Data views
 - Quote table
+- Budget Fit recommendation cards/table
 - Scenario comparison table
 - Read-only rules table
 - Activity / audit timeline [future]
@@ -465,7 +533,10 @@ The eventual Streamlit implementation should build a small reusable component la
 - Pricing Review hierarchy
 - Approval-required visual state
 - Explainable price bridge
+- Quote / QuoteVersion / PricingSnapshot domain models
 - Scenario comparison with in-memory scenarios
+- Budget Fit negotiation inputs and results
+- Budget Fit v1 candidate generation + canonical-engine pricing
 
 ### Defer intentionally
 - Authentication
@@ -473,6 +544,7 @@ The eventual Streamlit implementation should build a small reusable component la
 - Real approval routing
 - CRM integration
 - Editable pricing-rule administration
+- Solver-based optimization unless bounded enumeration proves insufficient
 - Production-grade proposal document generation
 - Large analytics dashboard
 
@@ -492,5 +564,7 @@ Before adding more application logic, the design should make the following possi
 6. Does the quote require approval, and why?
 7. What happens next?
 8. How is pricing policy separated from application code?
+9. If the customer has a fixed budget, how can Northstar preserve required value instead of simply discounting?
+10. Which pricing version will a proposal reference?
 
 If those answers are visually obvious, the project will communicate product and strategy thinking before a reviewer reads the source code.

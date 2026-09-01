@@ -19,6 +19,8 @@ The SVGs below are deliberately low fidelity and are intended to lock hierarchy 
 
 ![Scenario comparison wireframe](wireframes/05-scenario-comparison.svg)
 
+![Budget Fit wireframe](wireframes/06-budget-fit.svg)
+
 ---
 
 
@@ -181,7 +183,8 @@ The SVGs below are deliberately low fidelity and are intended to lock hierarchy 
 │ • North America coverage adjustment                          │                           │
 │ • 24-month configured term adjustment                        │                           │
 └──────────────────────────────────────────────────────────────┴───────────────────────────┘
-│ [ + Add Scenario ]   [ Compare Scenarios ]                         [ Continue to Proposal ]│
+│ Customer budget: $45,000  • Gap: $14,964                                             │
+│ [ + Add Scenario ]   [ Optimize to Budget ] [ Compare Scenarios ] [ Continue to Proposal ]│
 └──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -230,6 +233,7 @@ For the first release, `Request Approval` can be represented as a disabled or cl
 ├───────────────────────┬──────────────────────┬──────────────────────┬─────────────────────┤
 │                       │ A — Recommended      │ B — Expanded        │ C — 36-Month        │
 ├───────────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Origin                │ Budget Fit           │ Manual               │ Budget Fit          │
 │ Tier                  │ Growth               │ Enterprise           │ Growth              │
 │ Users                 │ 8                    │ 10                   │ 8                   │
 │ Coverage              │ North America        │ Global               │ North America       │
@@ -240,6 +244,8 @@ For the first release, `Request Approval` can be represented as a disabled or cl
 ├───────────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
 │ Final price           │ $XX,XXX              │ $XX,XXX              │ $XX,XXX             │
 │ Approval              │ ✓ Within authority   │ ✓ Within authority   │ ✓ Within authority  │
+│ Budget variance        │ -$250                │ +$8,200              │ -$50                │
+│ Must-haves             │ 100%                 │ 100%                 │ 100%                 │
 ├───────────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
 │                       │ [ Select ]            │ [ Select ]           │ [ Select ]          │
 └───────────────────────┴──────────────────────┴──────────────────────┴─────────────────────┘
@@ -248,13 +254,71 @@ For the first release, `Request Approval` can be represented as a disabled or cl
 ### Behavior notes
 
 - Give scenarios human-readable labels.
+- Show scenario origin (`Manual` or `Budget Fit`) as quiet metadata.
 - Highlight only differing configuration rows where possible.
 - One scenario becomes the selected proposal basis.
 - Do not implement arbitrary spreadsheet-style side-by-side editing in the first version.
 
 ---
 
-## 7. Proposal Preview
+## 7. Budget Fit — negotiation workspace
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│ Optimize to Budget                                      BASELINE $59,964                 │
+│ Example Health Systems                                  TARGET   $45,000                 │
+├──────────────────────────────────────┬───────────────────────────────────────────────────┤
+│ CUSTOMER CONSTRAINTS                 │ BUDGET                                            │
+│                                      │                                                   │
+│ Target budget                        │ Current price                           $59,964     │
+│ [ $45,000________________ ]          │ Target budget                          $45,000     │
+│                                      │ Gap                                   -$14,964     │
+│ Must preserve                        │                                                   │
+│ [✓] Growth / core package            │ Northstar will vary only attributes marked       │
+│ [✓] At least 24 months history       │ flexible and price every candidate through the   │
+│ [✓] North America coverage           │ active pricing engine.                           │
+│                                      │                                                   │
+│ Flexible                             │                                  [ Find Options ] │
+│ [✓] Users                            │                                                   │
+│ [✓] Premium support                  │                                                   │
+│ [✓] Contract term                    │                                                   │
+│ [ ] Coverage                         │                                                   │
+└──────────────────────────────────────┴───────────────────────────────────────────────────┘
+│ RECOMMENDATIONS                                                                          │
+│                                                                                          │
+│ ┌──────────────────────┐ ┌──────────────────────┐ ┌──────────────────────┐              │
+│ │ A — Recommended      │ │ B — Preserve Scope   │ │ C — Max Budget Use   │              │
+│ │ $44,750              │ │ $42,900              │ │ $44,950              │              │
+│ │ $250 under budget    │ │ $2,100 under budget  │ │ $50 under budget     │              │
+│ │                      │ │                      │ │                      │              │
+│ │ 100% must-haves      │ │ 100% must-haves      │ │ 100% must-haves      │              │
+│ │ No discount          │ │ No discount          │ │ 5% discount          │              │
+│ │ Within authority     │ │ Within authority     │ │ Within authority     │              │
+│ │                      │ │                      │ │                      │              │
+│ │ Changes:             │ │ Changes:             │ │ Changes:             │              │
+│ │ - Standard support   │ │ - 6 users            │ │ - 7 users            │              │
+│ │ - 6 users            │ │ - 36-month term      │ │ - Standard support   │              │
+│ │                      │ │                      │ │                      │              │
+│ │ [ Add to Compare ]   │ │ [ Add to Compare ]   │ │ [ Add to Compare ]   │              │
+│ └──────────────────────┘ └──────────────────────┘ └──────────────────────┘              │
+│                                                                                          │
+│ Recommendations are decision support. Select a scenario before it becomes quote history.│
+└──────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Behavior notes
+
+- Budget is negotiation context, not a direct override of final price.
+- Must-have attributes are hard constraints.
+- Only dimensions marked flexible may be changed by the optimizer.
+- Every recommendation must show price, budget variance, must-have coverage, approval state, and changes from baseline.
+- Recommendations are generated through the canonical pricing engine.
+- The user explicitly adds recommendations to comparison and selects the commercial path.
+- If no valid option fits the target budget, show a no-solution state and the closest explainable alternatives rather than claiming success.
+
+---
+
+## 8. Proposal Preview
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -289,7 +353,7 @@ For the first release, `Request Approval` can be represented as a disabled or cl
 
 ---
 
-## 8. Pricing Rules — read-only governance view
+## 9. Pricing Rules — read-only governance view
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
@@ -333,6 +397,7 @@ Each screen should have one visually dominant next action.
 | Review — standard | Continue to Proposal |
 | Review — exception | Request Approval or Revise Discount |
 | Scenario Comparison | Select Scenario |
+| Budget Fit | Find Options / Add to Compare |
 | Proposal Preview | Generate Proposal |
 
 ## Money formatting
