@@ -13,7 +13,15 @@ from enum import Enum
 from uuid import uuid4
 
 from pricing_engine import QuoteRequest, QuoteResult, calculate_quote
-from quotes import AdjustmentSnapshot, ConfigurationSnapshot, PricingSnapshot, Quote
+from quotes import (
+    AdjustmentSnapshot,
+    ConfigurationSnapshot,
+    PricingSnapshot,
+    Quote,
+    Scenario,
+    ScenarioSource,
+    ScenarioWorkspace,
+)
 
 DEFAULT_OWNER = "You"
 
@@ -190,7 +198,7 @@ class CommitError(ValueError):
     """Raised when the current draft state cannot be committed to Review."""
 
 
-def _configuration_input_from_snapshot(snapshot: ConfigurationSnapshot) -> ConfigurationInput:
+def configuration_input_from_snapshot(snapshot: ConfigurationSnapshot) -> ConfigurationInput:
     return ConfigurationInput(
         tier=snapshot.tier,
         users=snapshot.users,
@@ -210,7 +218,7 @@ def committed_configuration_matches(
     """True if `quote`'s committed v1 reflects exactly this `pricing_state`."""
     if quote is None or pricing_state is None:
         return False
-    committed_configuration = _configuration_input_from_snapshot(
+    committed_configuration = configuration_input_from_snapshot(
         quote.current_version.configuration_snapshot
     )
     return (
@@ -326,3 +334,59 @@ def build_review_pricing(quote: Quote) -> ReviewPricingState:
         rule_version=snapshot.rule_version,
         calculated_at=snapshot.calculated_at,
     )
+
+
+class ScenarioError(ValueError):
+    """Raised when a scenario draft cannot be saved into the workspace."""
+
+
+def create_scenario_workspace(quote: Quote) -> ScenarioWorkspace:
+    """Anchor a new exploration workspace to the committed QuoteVersion.
+
+    Scenarios are exploratory alternatives to this specific version; the
+    workspace records exactly which version they were explored against.
+    """
+    return ScenarioWorkspace(
+        quote_id=quote.quote_id,
+        base_version_number=quote.current_version.version_number,
+    )
+
+
+def create_manual_scenario(
+    name: str,
+    workspace: ScenarioWorkspace,
+    pricing_state: PricingState | None,
+    stale: bool,
+) -> Scenario:
+    """Save an evaluated scenario draft into the workspace.
+
+    Mirrors commit_quote's shape: validates preconditions (name required,
+    pricing must exist and be non-stale), builds the Scenario using the
+    same snapshot conversions the domain already uses (ConfigurationSnapshot
+    / PricingSnapshot), and appends it to the workspace via
+    ScenarioWorkspace.add_scenario. Never touches Quote or QuoteVersion --
+    an approval-required scenario is a valid alternative and may be saved.
+    """
+    if not name or not name.strip():
+        raise ScenarioError("Scenario name is required before saving.")
+    if pricing_state is None:
+        raise ScenarioError("Calculate the scenario before saving.")
+    if stale:
+        raise ScenarioError(
+            "Configuration has changed since the last calculation. Recalculate "
+            "before saving."
+        )
+    request = configuration_to_quote_request(
+        pricing_state.customer_name, pricing_state.configuration
+    )
+    configuration_snapshot = ConfigurationSnapshot.from_request(request)
+    pricing_snapshot = PricingSnapshot.from_pricing_result(pricing_state.result)
+    scenario = Scenario(
+        name=name.strip(),
+        source_version_number=workspace.base_version_number,
+        configuration_snapshot=configuration_snapshot,
+        pricing_snapshot=pricing_snapshot,
+        source=ScenarioSource.MANUAL,
+    )
+    workspace.add_scenario(scenario)
+    return scenario

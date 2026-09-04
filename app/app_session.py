@@ -12,7 +12,7 @@ import streamlit as st
 
 from app_state import DealContext, PricingState, WorkflowStep
 from pricing_engine import load_rules
-from quotes import Quote
+from quotes import Quote, ScenarioWorkspace
 
 ROOT = Path(__file__).resolve().parent.parent
 RULES_PATH = ROOT / "config" / "pricing_rules.yaml"
@@ -22,6 +22,9 @@ _DEFAULTS: dict[str, object] = {
     "deal_context": None,
     "pricing_state": None,
     "current_quote": None,
+    "scenario_workspace": None,
+    "scenario_draft_pricing_state": None,
+    "exploring_alternatives": False,
 }
 
 
@@ -41,6 +44,11 @@ def start_new_quote_workflow() -> None:
     st.session_state["deal_context"] = None
     st.session_state["pricing_state"] = None
     st.session_state["current_quote"] = None
+    # Scenarios are explored against a specific committed QuoteVersion --
+    # starting a new quote must not let a prior quote's alternatives leak in.
+    st.session_state["scenario_workspace"] = None
+    st.session_state["scenario_draft_pricing_state"] = None
+    st.session_state["exploring_alternatives"] = False
 
 
 def get_workflow_step() -> WorkflowStep | None:
@@ -73,3 +81,27 @@ def get_current_quote() -> Quote | None:
 
 def set_current_quote(quote: Quote | None) -> None:
     st.session_state["current_quote"] = quote
+
+
+def get_scenario_workspace() -> ScenarioWorkspace | None:
+    return st.session_state.get("scenario_workspace")
+
+
+def set_scenario_workspace(workspace: ScenarioWorkspace | None) -> None:
+    st.session_state["scenario_workspace"] = workspace
+
+
+def get_scenario_draft_pricing_state() -> PricingState | None:
+    return st.session_state.get("scenario_draft_pricing_state")
+
+
+def set_scenario_draft_pricing_state(pricing_state: PricingState | None) -> None:
+    st.session_state["scenario_draft_pricing_state"] = pricing_state
+
+
+def is_exploring_alternatives() -> bool:
+    return bool(st.session_state.get("exploring_alternatives"))
+
+
+def set_exploring_alternatives(value: bool) -> None:
+    st.session_state["exploring_alternatives"] = value

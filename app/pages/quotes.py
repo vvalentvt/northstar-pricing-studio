@@ -12,12 +12,18 @@ from app_session import (
     get_current_quote,
     get_deal_context,
     get_pricing_state,
+    get_scenario_draft_pricing_state,
+    get_scenario_workspace,
     get_workflow_step,
     init_session_state,
+    is_exploring_alternatives,
     load_pricing_rules,
     set_current_quote,
     set_deal_context,
+    set_exploring_alternatives,
     set_pricing_state,
+    set_scenario_draft_pricing_state,
+    set_scenario_workspace,
     set_workflow_step,
     start_new_quote_workflow,
 )
@@ -27,10 +33,14 @@ from app_state import (
     ConfigurationInput,
     DealContext,
     PricingState,
+    ScenarioError,
     WorkflowStep,
     build_review_pricing,
     calculate_pricing,
     commit_quote,
+    configuration_input_from_snapshot,
+    create_manual_scenario,
+    create_scenario_workspace,
     derive_status_label,
     format_money,
     is_stale,
@@ -43,6 +53,7 @@ from components import (
     render_price_bridge,
     render_price_card,
     render_rule_metadata,
+    render_saved_scenarios,
     render_status_badge,
     render_stepper,
     render_why_this_price,
@@ -277,7 +288,7 @@ def render_configure(rules: dict) -> None:
             render_calculation_success(pricing_state, quote, deal_context, stale)
 
 
-def render_review_pricing() -> None:
+def render_review_pricing(rules: dict) -> None:
     quote = get_current_quote()
     if quote is None:
         st.title("Review Pricing")
@@ -286,6 +297,10 @@ def render_review_pricing() -> None:
         if st.button("← Back to Configure"):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
+        return
+
+    if is_exploring_alternatives():
+        render_scenario_workspace(quote, rules)
         return
 
     review = build_review_pricing(quote)
@@ -324,19 +339,228 @@ def render_review_pricing() -> None:
     render_rule_metadata(review)
 
     st.divider()
-    action_col1, action_col2 = st.columns(2)
+    action_col1, action_col2, action_col3 = st.columns(3)
     with action_col1:
         edit_label = "Revise Configuration" if review.approval_required else "Edit Configuration"
         if st.button(edit_label):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
     with action_col2:
+        # Available regardless of approval state -- scope/term changes may
+        # be preferable to a larger discount for approval-required pricing.
+        if st.button("Explore Alternatives"):
+            workspace = get_scenario_workspace()
+            if workspace is None or workspace.quote_id != quote.quote_id:
+                workspace = create_scenario_workspace(quote)
+                set_scenario_workspace(workspace)
+                set_scenario_draft_pricing_state(None)
+            set_exploring_alternatives(True)
+            st.rerun()
+    with action_col3:
         if review.proposal_available:
             if st.button("Continue to Proposal →", type="primary"):
                 set_workflow_step(WorkflowStep.PROPOSAL)
                 st.rerun()
         else:
             st.button("Request Approval — planned", disabled=True)
+
+
+def render_scenario_workspace(quote: Quote, rules: dict) -> None:
+    """Explore Alternatives: a branch off Review Pricing, not a workflow
+    step. The workflow stepper still shows Review Pricing as active."""
+    workspace = get_scenario_workspace()
+    if workspace is None:
+        # Defensive: Explore Alternatives always creates the workspace
+        # before setting this flag, so this should be unreachable.
+        set_exploring_alternatives(False)
+        st.rerun()
+        return
+
+    deal_context = get_deal_context()
+    customer_name = deal_context.customer_name if deal_context else quote.customer_name
+
+    st.title("Explore Alternatives")
+    st.caption(customer_name)
+    st.caption(f"Quote {workspace.quote_id} • Based on pricing version v{workspace.base_version_number}")
+    render_stepper(WorkflowStep.REVIEW_PRICING)
+
+    baseline_version = quote.current_version
+    baseline_snapshot = baseline_version.pricing_snapshot
+    baseline_configuration = baseline_version.configuration_snapshot
+    defaults = configuration_input_from_snapshot(baseline_configuration)
+    scenario_key = quote.quote_id
+
+    build_col, baseline_col = st.columns([2, 1])
+
+    with baseline_col:
+        st.subheader("Committed Baseline")
+        st.metric("Current committed price", format_money(baseline_snapshot.final_price))
+        render_configuration_bullets(baseline_configuration)
+
+    with build_col:
+        st.subheader("Build Alternative")
+        scenario_name = st.text_input(
+            "Scenario name",
+            key=f"scenario_name_{scenario_key}",
+            placeholder="e.g. Reduced Scope",
+        )
+
+        st.markdown("**Package**")
+        c1, c2 = st.columns(2)
+        tier_options = list(rules["tiers"].keys())
+        tier = c1.selectbox(
+            "Subscription tier",
+            tier_options,
+            format_func=str.title,
+            index=tier_options.index(defaults.tier),
+            key=f"scenario_tier_{scenario_key}",
+        )
+        included_users = rules["users"]["included"]
+        users = c2.number_input(
+            "Users",
+            min_value=1,
+            value=defaults.users,
+            step=1,
+            key=f"scenario_users_{scenario_key}",
+        )
+        extra_users = max(int(users) - included_users, 0)
+        if extra_users:
+            c2.caption(f"{included_users} included • {extra_users} additional users")
+        else:
+            c2.caption(f"{included_users} users included")
+
+        st.markdown("**Data Scope**")
+        c3, c4 = st.columns(2)
+        coverage_options = list(rules["coverage"].keys())
+        coverage = c3.selectbox(
+            "Geographic coverage",
+            coverage_options,
+            format_func=lambda v: v.replace("_", " ").title(),
+            index=coverage_options.index(defaults.coverage),
+            key=f"scenario_coverage_{scenario_key}",
+        )
+        history_options = sorted(rules["history_years"].keys())
+        history_years = c4.selectbox(
+            "Historical depth",
+            history_options,
+            format_func=lambda v: f"{v} year" + ("s" if v != 1 else ""),
+            index=history_options.index(defaults.history_years),
+            key=f"scenario_history_{scenario_key}",
+        )
+
+        st.markdown("**Commercial Terms**")
+        c5, c6 = st.columns(2)
+        term_options = sorted(rules["contract_term"].keys())
+        contract_months = c5.selectbox(
+            "Contract term",
+            term_options,
+            format_func=lambda v: f"{v} months",
+            index=term_options.index(defaults.contract_months),
+            key=f"scenario_term_{scenario_key}",
+        )
+        renewal = c6.checkbox(
+            "Renewal", value=defaults.renewal, key=f"scenario_renewal_{scenario_key}"
+        )
+
+        st.markdown("**Services**")
+        c7, c8 = st.columns(2)
+        premium_support = c7.checkbox(
+            "Premium support",
+            value=defaults.premium_support,
+            key=f"scenario_premium_support_{scenario_key}",
+        )
+        implementation_services = c8.checkbox(
+            "Implementation services",
+            value=defaults.implementation_services,
+            key=f"scenario_implementation_services_{scenario_key}",
+        )
+
+        st.markdown("**Discount**")
+        max_self_service = rules["discount_policy"]["max_self_service_percent"]
+        max_allowed = rules["discount_policy"]["max_allowed_percent"]
+        requested_discount_percent = st.slider(
+            "Requested discount (%)",
+            0,
+            int(max_allowed),
+            int(defaults.requested_discount_percent),
+            key=f"scenario_discount_{scenario_key}",
+        )
+        if requested_discount_percent > max_self_service:
+            st.caption(
+                f"⚠ Above self-service authority ({max_self_service}%) — will require approval."
+            )
+        else:
+            st.caption(f"Self-service authority: up to {max_self_service}%")
+
+        scenario_configuration = ConfigurationInput(
+            tier=tier,
+            users=int(users),
+            coverage=coverage,
+            history_years=int(history_years),
+            contract_months=int(contract_months),
+            premium_support=premium_support,
+            implementation_services=implementation_services,
+            renewal=renewal,
+            requested_discount_percent=float(requested_discount_percent),
+        )
+
+        draft_pricing_state = get_scenario_draft_pricing_state()
+        stale = is_stale(draft_pricing_state, customer_name, scenario_configuration)
+
+        if draft_pricing_state is not None and stale:
+            st.warning(
+                "Configuration has changed since the last calculation. "
+                "Recalculate to see the current price."
+            )
+
+        if draft_pricing_state is not None and not stale:
+            st.metric("Scenario price", format_money(draft_pricing_state.result.final_price))
+            render_status_badge(
+                "NEEDS APPROVAL" if draft_pricing_state.result.approval_required else "PRICED"
+            )
+        else:
+            st.metric("Scenario price", "Not calculated")
+
+        calc_col, save_col = st.columns(2)
+        with calc_col:
+            if st.button("Calculate Scenario"):
+                try:
+                    result = calculate_pricing(customer_name, scenario_configuration, rules)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    set_scenario_draft_pricing_state(
+                        PricingState(
+                            result=result,
+                            customer_name=customer_name,
+                            configuration=scenario_configuration,
+                        )
+                    )
+                    st.rerun()
+        with save_col:
+            save_disabled = draft_pricing_state is None or stale or not scenario_name.strip()
+            if st.button("Save Scenario", disabled=save_disabled):
+                try:
+                    create_manual_scenario(scenario_name, workspace, draft_pricing_state, stale)
+                except ScenarioError as exc:
+                    st.error(str(exc))
+                else:
+                    set_scenario_workspace(workspace)
+                    set_scenario_draft_pricing_state(None)
+                    st.success(f'Saved "{scenario_name.strip()}" to your alternatives.')
+                    st.rerun()
+
+    st.divider()
+    removed_id = render_saved_scenarios(workspace.scenarios)
+    if removed_id is not None:
+        workspace.remove_scenario(removed_id)
+        set_scenario_workspace(workspace)
+        st.rerun()
+
+    st.divider()
+    if st.button("← Back to Review Pricing"):
+        set_exploring_alternatives(False)
+        st.rerun()
 
 
 def render_proposal_placeholder() -> None:
@@ -378,6 +602,6 @@ elif step == WorkflowStep.DEAL_SETUP:
 elif step == WorkflowStep.CONFIGURE:
     render_configure(rules)
 elif step == WorkflowStep.REVIEW_PRICING:
-    render_review_pricing()
+    render_review_pricing(rules)
 elif step == WorkflowStep.PROPOSAL:
     render_proposal_placeholder()

@@ -13,6 +13,7 @@ from app_state import (
     WorkflowStep,
     format_money,
 )
+from quotes import Scenario
 
 _STATUS_COLORS: dict[str, str] = {
     "DRAFT": "gray",
@@ -148,3 +149,41 @@ def render_configuration_summary(review: ReviewPricingState) -> None:
 def render_rule_metadata(review: ReviewPricingState) -> None:
     calculated_at = review.calculated_at.strftime("%b %d, %Y %I:%M %p")
     st.caption(f"Pricing policy: v{review.rule_version} • Calculated {calculated_at}")
+
+
+def render_saved_scenarios(scenarios: tuple[Scenario, ...]) -> str | None:
+    """Renders the saved-scenario list; returns the scenario_id whose
+    Remove button was clicked this run, or None.
+
+    Pure presentation: the caller owns the actual
+    ScenarioWorkspace.remove_scenario(...) call and any rerun.
+    """
+    st.subheader("Saved alternatives")
+    if not scenarios:
+        st.caption("No saved alternatives yet.")
+        return None
+
+    removed_id: str | None = None
+    for scenario in scenarios:
+        with st.container(border=True):
+            name_col, price_col, status_col, action_col = st.columns([2, 1, 1, 1])
+            name_col.write(f"**{scenario.name}**")
+            price_col.write(format_money(scenario.pricing_snapshot.final_price))
+            status_label = (
+                "NEEDS APPROVAL" if scenario.pricing_snapshot.approval_required else "PRICED"
+            )
+            with status_col:
+                render_status_badge(status_label)
+            if action_col.button("Remove", key=f"remove_scenario_{scenario.scenario_id}"):
+                removed_id = scenario.scenario_id
+
+            config = scenario.configuration_snapshot
+            depth = config.history_years
+            st.caption(
+                f"{config.tier.title()} • {config.users} users • "
+                f"{config.coverage.replace('_', ' ').title()} • "
+                f"{depth} year{'s' if depth != 1 else ''} history • "
+                f"{config.contract_months}-month term • "
+                f"{config.requested_discount_percent:.0f}% discount"
+            )
+    return removed_id
