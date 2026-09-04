@@ -81,15 +81,22 @@ def _right(text: str) -> str:
 
 
 def render_price_card(review: ReviewPricingState) -> None:
+    """Within-authority decision header.
+
+    Deliberately mirrors render_approval_callout's structure -- final
+    price first, then the authority state, then supporting figures -- so
+    the two decision states read as parallel outcomes, not different UIs.
+    """
     st.metric("Final price", format_money(review.final_price))
     st.success("Within self-service pricing authority.")
-    st.caption(
-        f"Requested discount {review.requested_discount_percent:.0f}% • "
-        f"Authority up to {review.self_service_threshold_percent:.0f}%"
-    )
+    c1, c2 = st.columns(2)
+    c1.metric("Requested discount", f"{review.requested_discount_percent:.0f}%")
+    c2.metric("Self-service authority", f"{review.self_service_threshold_percent:.0f}%")
 
 
 def render_approval_callout(review: ReviewPricingState) -> None:
+    """Approval-required decision header -- see render_price_card."""
+    st.metric("Final price", format_money(review.final_price))
     st.warning("**Approval required**")
     if review.approval_reason:
         st.write(review.approval_reason)
@@ -97,7 +104,6 @@ def render_approval_callout(review: ReviewPricingState) -> None:
     c1.metric("Requested discount", f"{review.requested_discount_percent:.0f}%")
     c2.metric("Self-service limit", f"{review.self_service_threshold_percent:.0f}%")
     c3.metric("Discount impact", format_money(-review.discount_amount, signed=True))
-    st.metric("Final price", format_money(review.final_price))
 
 
 def render_price_bridge(review: ReviewPricingState) -> None:
@@ -106,7 +112,11 @@ def render_price_bridge(review: ReviewPricingState) -> None:
     def _row(label: str, amount_text: str, *, bold: bool = False) -> None:
         left, right = st.columns([3, 1])
         left.write(f"**{label}**" if bold else label)
-        right.markdown(_right(f"**{amount_text}**" if bold else amount_text), unsafe_allow_html=True)
+        # Raw HTML (for right-alignment) suppresses inline markdown parsing
+        # inside it, so "**text**" would render as literal asterisks here --
+        # use a real <strong> tag instead of markdown bold syntax.
+        amount_html = f"<strong>{amount_text}</strong>" if bold else amount_text
+        right.markdown(_right(amount_html), unsafe_allow_html=True)
 
     _row("Base subscription", format_money(review.base_price))
     for adjustment in review.adjustments:
