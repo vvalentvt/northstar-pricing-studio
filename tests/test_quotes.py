@@ -9,9 +9,11 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from pricing_engine import QuoteRequest, calculate_quote, load_rules
 from quotes import (
+    ConfigurationSnapshot,
     NegotiationContext,
     PricingSnapshot,
     Quote,
+    QuoteVersion,
     QuoteVersionSource,
 )
 
@@ -101,7 +103,7 @@ def test_previous_versions_remain_unchanged():
 
     v1 = quote.versions[0]
     assert v1 is original_version
-    assert v1.configuration.tier == "core"
+    assert v1.configuration_snapshot.tier == "core"
     assert v1.pricing_snapshot.final_price == snapshot_v1.final_price
 
     with pytest.raises(ValidationError):
@@ -171,3 +173,128 @@ def test_budget_fit_version_source_can_be_recorded():
 
     assert version.source == QuoteVersionSource.BUDGET_FIT
     assert version.source.value == "budget_fit"
+
+
+def test_stored_configuration_cannot_be_mutated():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+    quote = Quote.create(
+        quote_id="Q-00124",
+        customer_name="Acme",
+        owner="vinnie",
+        configuration=configuration,
+        pricing_snapshot=snapshot,
+    )
+
+    stored = quote.current_version.configuration_snapshot
+    assert isinstance(stored, ConfigurationSnapshot)
+    with pytest.raises(ValidationError):
+        stored.tier = "growth"
+
+
+def test_external_request_mutation_does_not_change_stored_version():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+    quote = Quote.create(
+        quote_id="Q-00124",
+        customer_name="Acme",
+        owner="vinnie",
+        configuration=configuration,
+        pricing_snapshot=snapshot,
+    )
+
+    configuration.tier = "growth"
+    configuration.users = 999
+
+    stored = quote.current_version.configuration_snapshot
+    assert stored.tier == "core"
+    assert stored.users == 5
+
+
+def test_version_collection_cannot_be_mutated_in_place():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+    quote = Quote.create(
+        quote_id="Q-00124",
+        customer_name="Acme",
+        owner="vinnie",
+        configuration=configuration,
+        pricing_snapshot=snapshot,
+    )
+
+    assert isinstance(quote.versions, tuple)
+    with pytest.raises(AttributeError):
+        quote.versions.append(quote.current_version)
+    with pytest.raises(AttributeError):
+        quote.versions.clear()
+    with pytest.raises(TypeError):
+        quote.versions[0] = quote.current_version
+
+    # confirmed history is untouched by the failed mutation attempts
+    assert len(quote.versions) == 1
+
+
+def test_quote_requires_at_least_one_version():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+    version = QuoteVersion(
+        version_number=1,
+        configuration_snapshot=ConfigurationSnapshot.from_request(configuration),
+        pricing_snapshot=snapshot,
+        source=QuoteVersionSource.INITIAL,
+    )
+
+    with pytest.raises(ValidationError):
+        Quote(quote_id="Q-00124", customer_name="Acme", owner="vinnie", versions=())
+
+    # sanity check: a non-empty, sequential history is accepted
+    quote = Quote(
+        quote_id="Q-00124", customer_name="Acme", owner="vinnie", versions=(version,)
+    )
+    assert quote.current_version.version_number == 1
+
+
+def test_quote_rejects_non_sequential_version_history():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+    out_of_order_version = QuoteVersion(
+        version_number=5,
+        configuration_snapshot=ConfigurationSnapshot.from_request(configuration),
+        pricing_snapshot=snapshot,
+        source=QuoteVersionSource.INITIAL,
+    )
+
+    with pytest.raises(ValidationError):
+        Quote(
+            quote_id="Q-00124",
+            customer_name="Acme",
+            owner="vinnie",
+            versions=(out_of_order_version,),
+        )
+
+
+def test_pricing_snapshot_adjustments_are_immutable():
+    configuration = _configuration(users=20)
+    snapshot = _snapshot(configuration)
+
+    assert isinstance(snapshot.adjustments, tuple)
+    assert len(snapshot.adjustments) > 0
+    with pytest.raises(ValidationError):
+        snapshot.adjustments[0].amount = 0
+    with pytest.raises(AttributeError):
+        snapshot.adjustments.append(snapshot.adjustments[0])
+
+
+def test_negotiation_context_attributes_are_immutable():
+    context = NegotiationContext(
+        target_budget=45000,
+        required_attributes=["Growth package"],
+        flexible_attributes=["User count"],
+    )
+
+    assert isinstance(context.required_attributes, tuple)
+    assert isinstance(context.flexible_attributes, tuple)
+    with pytest.raises(AttributeError):
+        context.required_attributes.append("New requirement")
+    with pytest.raises(ValidationError):
+        context.required_attributes = ("Different requirement",)

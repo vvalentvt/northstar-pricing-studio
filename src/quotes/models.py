@@ -15,14 +15,36 @@ class QuoteVersionSource(str, Enum):
     APPROVAL_REVISION = "approval_revision"
 
 
+class ConfigurationSnapshot(QuoteRequest):
+    """Immutable copy of the commercial configuration for one QuoteVersion.
+
+    Subclasses QuoteRequest to reuse its field definitions without
+    duplicating them, but is frozen: the pricing-engine input type stays
+    mutable for request-time use, while this snapshot is what a
+    QuoteVersion actually stores.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    @classmethod
+    def from_request(cls, request: QuoteRequest) -> "ConfigurationSnapshot":
+        return cls(**request.model_dump())
+
+
+class AdjustmentSnapshot(Adjustment):
+    """Immutable copy of a pricing adjustment for one PricingSnapshot."""
+
+    model_config = ConfigDict(frozen=True)
+
+
 class NegotiationContext(BaseModel):
     """Customer constraints that motivated a negotiated revision."""
 
     model_config = ConfigDict(frozen=True)
 
     target_budget: float = Field(gt=0)
-    required_attributes: list[str] = Field(default_factory=list)
-    flexible_attributes: list[str] = Field(default_factory=list)
+    required_attributes: tuple[str, ...] = Field(default_factory=tuple)
+    flexible_attributes: tuple[str, ...] = Field(default_factory=tuple)
 
 
 class PricingSnapshot(BaseModel):
@@ -36,7 +58,7 @@ class PricingSnapshot(BaseModel):
 
     rule_version: str
     base_price: float
-    adjustments: list[Adjustment]
+    adjustments: tuple[AdjustmentSnapshot, ...]
     subtotal_before_discount: float
     discount_amount: float
     final_price: float
@@ -51,7 +73,9 @@ class PricingSnapshot(BaseModel):
         return cls(
             rule_version=result.rule_version,
             base_price=result.list_price,
-            adjustments=result.adjustments,
+            adjustments=tuple(
+                AdjustmentSnapshot(**a.model_dump()) for a in result.adjustments
+            ),
             subtotal_before_discount=result.subtotal_before_discount,
             discount_amount=result.discount_amount,
             final_price=result.final_price,
@@ -67,7 +91,7 @@ class QuoteVersion(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version_number: int = Field(ge=1)
-    configuration: QuoteRequest
+    configuration_snapshot: ConfigurationSnapshot
     pricing_snapshot: PricingSnapshot
     source: QuoteVersionSource
     negotiation_context: NegotiationContext | None = None
@@ -77,9 +101,10 @@ class QuoteVersion(BaseModel):
 class Quote(BaseModel):
     """The stable commercial object across revisions.
 
-    Preserves an ordered, append-only history of QuoteVersions. Quote does
-    not calculate price; it only records commercial decisions produced
-    elsewhere (pricing engine + snapshot).
+    Preserves an ordered, append-only history of QuoteVersions as a tuple
+    so callers cannot mutate history in place (append/clear/index-assign).
+    Quote does not calculate price; it only records commercial decisions
+    produced elsewhere (pricing engine + snapshot).
     """
 
     quote_id: str = Field(min_length=1)
@@ -87,7 +112,7 @@ class Quote(BaseModel):
     owner: str = Field(min_length=1)
     status: str = "open"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    versions: list[QuoteVersion] = Field(default_factory=list)
+    versions: tuple[QuoteVersion, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _check_sequential_versions(self) -> "Quote":
@@ -101,8 +126,6 @@ class Quote(BaseModel):
 
     @property
     def current_version(self) -> QuoteVersion:
-        if not self.versions:
-            raise ValueError(f"Quote {self.quote_id} has no versions")
         return self.versions[-1]
 
     def add_version(
@@ -114,12 +137,12 @@ class Quote(BaseModel):
     ) -> QuoteVersion:
         new_version = QuoteVersion(
             version_number=len(self.versions) + 1,
-            configuration=configuration,
+            configuration_snapshot=ConfigurationSnapshot.from_request(configuration),
             pricing_snapshot=pricing_snapshot,
             source=source,
             negotiation_context=negotiation_context,
         )
-        self.versions.append(new_version)
+        self.versions = (*self.versions, new_version)
         return new_version
 
     @classmethod
@@ -132,11 +155,16 @@ class Quote(BaseModel):
         pricing_snapshot: PricingSnapshot,
         negotiation_context: NegotiationContext | None = None,
     ) -> "Quote":
-        quote = cls(quote_id=quote_id, customer_name=customer_name, owner=owner)
-        quote.add_version(
-            configuration=configuration,
+        initial_version = QuoteVersion(
+            version_number=1,
+            configuration_snapshot=ConfigurationSnapshot.from_request(configuration),
             pricing_snapshot=pricing_snapshot,
             source=QuoteVersionSource.INITIAL,
             negotiation_context=negotiation_context,
         )
-        return quote
+        return cls(
+            quote_id=quote_id,
+            customer_name=customer_name,
+            owner=owner,
+            versions=(initial_version,),
+        )

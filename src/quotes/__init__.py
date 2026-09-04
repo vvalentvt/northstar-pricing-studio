@@ -1,4 +1,6 @@
 from .models import (
+    AdjustmentSnapshot,
+    ConfigurationSnapshot,
     NegotiationContext,
     PricingSnapshot,
     Quote,
@@ -7,6 +9,8 @@ from .models import (
 )
 
 __all__ = [
+    "AdjustmentSnapshot",
+    "ConfigurationSnapshot",
     "NegotiationContext",
     "PricingSnapshot",
     "Quote",
