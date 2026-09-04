@@ -10,6 +10,7 @@ from app_state import (
     WORKFLOW_STEP_LABELS,
     WORKFLOW_STEP_ORDER,
     ReviewPricingState,
+    ScenarioComparison,
     WorkflowStep,
     format_money,
 )
@@ -187,3 +188,47 @@ def render_saved_scenarios(scenarios: tuple[Scenario, ...]) -> str | None:
                 f"{config.requested_discount_percent:.0f}% discount"
             )
     return removed_id
+
+
+def render_scenario_comparison_table(comparison: ScenarioComparison) -> None:
+    """Renders the committed baseline + scenario columns side by side.
+
+    Pure presentation over already-derived ScenarioComparison facts -- no
+    domain object is read here and nothing is recalculated. Differing
+    configuration rows are bolded (never red/green, which are reserved for
+    approval/validation state) so they're easy to spot without implying a
+    judgment about which option is "better".
+    """
+    column_widths = [2] + [1] * len(comparison.options)
+
+    header_cols = st.columns(column_widths)
+    header_cols[0].write("")
+    for col, option in zip(header_cols[1:], comparison.options):
+        label = "Committed Quote" if option.is_baseline else option.name
+        col.markdown(f"**{label}**")
+
+    st.divider()
+
+    price_cols = st.columns(column_widths)
+    price_cols[0].write("**Final price**")
+    for col, option in zip(price_cols[1:], comparison.options):
+        col.markdown(f"**{format_money(option.final_price)}**")
+
+    delta_cols = st.columns(column_widths)
+    delta_cols[0].caption("vs committed")
+    for col, delta in zip(delta_cols[1:], comparison.price_deltas):
+        col.caption("—" if delta is None else format_money(delta, signed=True))
+
+    approval_cols = st.columns(column_widths)
+    approval_cols[0].write("Approval")
+    for col, option in zip(approval_cols[1:], comparison.options):
+        with col:
+            render_status_badge("NEEDS APPROVAL" if option.approval_required else "PRICED")
+
+    st.divider()
+
+    for row in comparison.rows:
+        row_cols = st.columns(column_widths)
+        row_cols[0].write(f"**{row.label}**" if row.differs else row.label)
+        for col, value in zip(row_cols[1:], row.values):
+            col.markdown(f"**{value}**" if row.differs else value)

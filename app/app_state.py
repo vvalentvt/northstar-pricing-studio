@@ -7,6 +7,7 @@ types into `st.session_state`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -390,3 +391,105 @@ def create_manual_scenario(
     )
     workspace.add_scenario(scenario)
     return scenario
+
+
+MAX_COMPARISON_ALTERNATIVES = 3
+
+
+@dataclass(frozen=True)
+class ComparisonOption:
+    """One column in the scenario comparison: the committed baseline, or
+    one saved Scenario. Every field here is copied from an existing
+    snapshot -- nothing is recalculated."""
+
+    id: str
+    name: str
+    is_baseline: bool
+    final_price: float
+    approval_required: bool
+    configuration: ConfigurationSnapshot
+
+
+@dataclass(frozen=True)
+class ComparisonRow:
+    """One commercial-attribute row across all comparison options."""
+
+    label: str
+    values: tuple[str, ...]
+    differs: bool
+
+
+@dataclass(frozen=True)
+class ScenarioComparison:
+    options: tuple[ComparisonOption, ...]
+    rows: tuple[ComparisonRow, ...]
+    price_deltas: tuple[float | None, ...]
+    """Aligned with `options`; None for the baseline itself."""
+
+
+_COMPARISON_FIELDS: tuple[tuple[str, Callable[[ConfigurationSnapshot], str]], ...] = (
+    ("Subscription tier", lambda c: c.tier.title()),
+    ("Users", lambda c: str(c.users)),
+    ("Geographic coverage", lambda c: c.coverage.replace("_", " ").title()),
+    (
+        "Historical depth",
+        lambda c: f"{c.history_years} year" + ("s" if c.history_years != 1 else ""),
+    ),
+    ("Contract term", lambda c: f"{c.contract_months} months"),
+    ("Renewal", lambda c: "Yes" if c.renewal else "No"),
+    ("Premium support", lambda c: "Yes" if c.premium_support else "No"),
+    ("Implementation services", lambda c: "Yes" if c.implementation_services else "No"),
+    ("Discount", lambda c: f"{c.requested_discount_percent:.0f}%"),
+)
+
+
+def _comparison_option_from_baseline(quote: Quote) -> ComparisonOption:
+    version = quote.current_version
+    snapshot = version.pricing_snapshot
+    return ComparisonOption(
+        id=f"baseline-v{version.version_number}",
+        name="Committed Quote",
+        is_baseline=True,
+        final_price=snapshot.final_price,
+        approval_required=snapshot.approval_required,
+        configuration=version.configuration_snapshot,
+    )
+
+
+def _comparison_option_from_scenario(scenario: Scenario) -> ComparisonOption:
+    return ComparisonOption(
+        id=scenario.scenario_id,
+        name=scenario.name,
+        is_baseline=False,
+        final_price=scenario.pricing_snapshot.final_price,
+        approval_required=scenario.pricing_snapshot.approval_required,
+        configuration=scenario.configuration_snapshot,
+    )
+
+
+def build_scenario_comparison(
+    quote: Quote, scenarios: tuple[Scenario, ...]
+) -> ScenarioComparison:
+    """Pure comparison facts for the committed baseline + selected scenarios.
+
+    Reads exclusively from quote.current_version and each Scenario's own
+    snapshots -- never draft state, never current rules. The only
+    arithmetic here is a price-delta subtraction between two already
+    -stored final_price values; no pricing component is recalculated.
+    """
+    options = (
+        _comparison_option_from_baseline(quote),
+        *(_comparison_option_from_scenario(s) for s in scenarios),
+    )
+    baseline_price = options[0].final_price
+    price_deltas = tuple(
+        None if option.is_baseline else option.final_price - baseline_price
+        for option in options
+    )
+
+    rows = []
+    for label, formatter in _COMPARISON_FIELDS:
+        values = tuple(formatter(option.configuration) for option in options)
+        rows.append(ComparisonRow(label=label, values=values, differs=len(set(values)) > 1))
+
+    return ScenarioComparison(options=options, rows=tuple(rows), price_deltas=price_deltas)

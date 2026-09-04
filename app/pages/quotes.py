@@ -16,8 +16,10 @@ from app_session import (
     get_scenario_workspace,
     get_workflow_step,
     init_session_state,
+    is_comparing_scenarios,
     is_exploring_alternatives,
     load_pricing_rules,
+    set_comparing_scenarios,
     set_current_quote,
     set_deal_context,
     set_exploring_alternatives,
@@ -29,6 +31,7 @@ from app_session import (
 )
 from app_state import (
     DEAL_TYPE_LABELS,
+    MAX_COMPARISON_ALTERNATIVES,
     CommitError,
     ConfigurationInput,
     DealContext,
@@ -36,6 +39,7 @@ from app_state import (
     ScenarioError,
     WorkflowStep,
     build_review_pricing,
+    build_scenario_comparison,
     calculate_pricing,
     commit_quote,
     configuration_input_from_snapshot,
@@ -54,11 +58,12 @@ from components import (
     render_price_card,
     render_rule_metadata,
     render_saved_scenarios,
+    render_scenario_comparison_table,
     render_status_badge,
     render_stepper,
     render_why_this_price,
 )
-from quotes import Quote
+from quotes import Quote, ScenarioWorkspace
 
 
 def render_quotes_overview() -> None:
@@ -300,7 +305,15 @@ def render_review_pricing(rules: dict) -> None:
         return
 
     if is_exploring_alternatives():
-        render_scenario_workspace(quote, rules)
+        if is_comparing_scenarios():
+            workspace = get_scenario_workspace()
+            if workspace is None:
+                set_comparing_scenarios(False)
+                st.rerun()
+                return
+            render_scenario_comparison(quote, workspace)
+        else:
+            render_scenario_workspace(quote, rules)
         return
 
     review = build_review_pricing(quote)
@@ -557,9 +570,58 @@ def render_scenario_workspace(quote: Quote, rules: dict) -> None:
         set_scenario_workspace(workspace)
         st.rerun()
 
+    if workspace.scenarios:
+        if st.button("Compare Scenarios"):
+            set_comparing_scenarios(True)
+            st.rerun()
+
     st.divider()
     if st.button("← Back to Review Pricing"):
         set_exploring_alternatives(False)
+        st.rerun()
+
+
+def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> None:
+    """Informational comparison of the committed baseline + saved scenarios.
+
+    Still conceptually part of Review Pricing -- no new workflow step, no
+    selection/promotion here (that's Phase 3C). Comparison cannot mutate
+    the Quote or the ScenarioWorkspace.
+    """
+    deal_context = get_deal_context()
+    customer_name = deal_context.customer_name if deal_context else quote.customer_name
+
+    st.title("Compare Scenarios")
+    st.caption(customer_name)
+    st.caption(f"Quote {workspace.quote_id} • Based on pricing version v{workspace.base_version_number}")
+    render_stepper(WorkflowStep.REVIEW_PRICING)
+
+    scenarios = workspace.scenarios
+    if len(scenarios) > MAX_COMPARISON_ALTERNATIVES:
+        st.caption(
+            f"You have {len(scenarios)} saved alternatives -- choose up to "
+            f"{MAX_COMPARISON_ALTERNATIVES} to compare at once."
+        )
+        default_ids = [s.scenario_id for s in scenarios[:MAX_COMPARISON_ALTERNATIVES]]
+        scenario_names = {s.scenario_id: s.name for s in scenarios}
+        selected_ids = st.multiselect(
+            "Scenarios to compare",
+            options=list(scenario_names.keys()),
+            default=default_ids,
+            format_func=lambda scenario_id: scenario_names[scenario_id],
+            max_selections=MAX_COMPARISON_ALTERNATIVES,
+        )
+        scenarios = tuple(s for s in scenarios if s.scenario_id in selected_ids)
+
+    if not scenarios:
+        st.info("Select at least one saved scenario to compare against the committed quote.")
+    else:
+        comparison = build_scenario_comparison(quote, scenarios)
+        render_scenario_comparison_table(comparison)
+
+    st.divider()
+    if st.button("← Back to Explore Alternatives"):
+        set_comparing_scenarios(False)
         st.rerun()
 
 

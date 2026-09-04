@@ -25,6 +25,7 @@ _DEFAULTS: dict[str, object] = {
     "scenario_workspace": None,
     "scenario_draft_pricing_state": None,
     "exploring_alternatives": False,
+    "comparing_scenarios": False,
 }
 
 
@@ -49,6 +50,7 @@ def start_new_quote_workflow() -> None:
     st.session_state["scenario_workspace"] = None
     st.session_state["scenario_draft_pricing_state"] = None
     st.session_state["exploring_alternatives"] = False
+    st.session_state["comparing_scenarios"] = False
 
 
 def get_workflow_step() -> WorkflowStep | None:
@@ -105,3 +107,11 @@ def is_exploring_alternatives() -> bool:
 
 def set_exploring_alternatives(value: bool) -> None:
     st.session_state["exploring_alternatives"] = value
+
+
+def is_comparing_scenarios() -> bool:
+    return bool(st.session_state.get("comparing_scenarios"))
+
+
+def set_comparing_scenarios(value: bool) -> None:
+    st.session_state["comparing_scenarios"] = value
