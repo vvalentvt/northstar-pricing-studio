@@ -8,12 +8,7 @@ for path in (ROOT / "src", ROOT / "app"):
 
 import streamlit as st
 
-from app_session import (
-    get_current_quote,
-    get_pricing_state,
-    init_session_state,
-    start_new_quote_workflow,
-)
+from app_session import get_current_quote, init_session_state, start_new_quote_workflow
 from app_state import derive_status_label
 from components import render_status_badge
 
@@ -43,6 +38,6 @@ else:
         st.write(f"**{quote.quote_id}** — {quote.customer_name}")
         st.caption(f"Current version: v{quote.current_version.version_number}")
     with badge_col:
-        render_status_badge(derive_status_label(get_pricing_state()))
+        render_status_badge(derive_status_label(quote))
     if st.button("Resume →"):
         st.switch_page("pages/quotes.py")

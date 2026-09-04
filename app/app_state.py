@@ -12,7 +12,7 @@ from enum import Enum
 from uuid import uuid4
 
 from pricing_engine import QuoteRequest, QuoteResult, calculate_quote
-from quotes import PricingSnapshot, Quote
+from quotes import ConfigurationSnapshot, PricingSnapshot, Quote
 
 DEFAULT_OWNER = "You"
 
@@ -145,10 +145,16 @@ def is_stale(
     )
 
 
-def derive_status_label(pricing_state: PricingState | None) -> str:
-    if pricing_state is None:
+def derive_status_label(quote: Quote | None) -> str:
+    """DRAFT until a Quote has actually been committed (see commit_quote).
+
+    Deliberately reads the durable Quote, not the live draft PricingState:
+    the badge reflects the commercial decision, not an in-progress
+    calculation that hasn't been proceeded past Configure yet.
+    """
+    if quote is None:
         return "DRAFT"
-    if pricing_state.result.approval_required:
+    if quote.current_version.pricing_snapshot.approval_required:
         return "NEEDS APPROVAL"
     return "PRICED"
 
@@ -161,25 +167,87 @@ def create_quote(
     deal_context: DealContext,
     configuration: ConfigurationInput,
     result: QuoteResult,
-    *,
-    existing_quote_id: str | None = None,
 ) -> Quote:
-    """Build the in-memory Quote for a just-calculated configuration.
+    """Build the durable in-memory Quote from a calculated configuration.
 
     Reuses Quote.create and PricingSnapshot.from_pricing_result directly;
-    no pricing or version logic is reimplemented here. This phase has no
-    QuoteVersion-append UI yet, so recalculating a draft rebuilds a fresh
-    single-version Quote rather than appending v2/v3 -- but it reuses
-    `existing_quote_id` when given so the visible quote ID stays stable
-    across recalculations of the same draft instead of changing on every
-    click.
+    no pricing or version logic is reimplemented here. Not called directly
+    by the UI -- see commit_quote, the one place this is invoked.
     """
     request = configuration_to_quote_request(deal_context.customer_name, configuration)
     pricing_snapshot = PricingSnapshot.from_pricing_result(result)
     return Quote.create(
-        quote_id=existing_quote_id or generate_quote_id(),
+        quote_id=generate_quote_id(),
         customer_name=deal_context.customer_name,
         owner=DEFAULT_OWNER,
         configuration=request,
         pricing_snapshot=pricing_snapshot,
     )
+
+
+class CommitError(ValueError):
+    """Raised when the current draft state cannot be committed to Review."""
+
+
+def _configuration_input_from_snapshot(snapshot: ConfigurationSnapshot) -> ConfigurationInput:
+    return ConfigurationInput(
+        tier=snapshot.tier,
+        users=snapshot.users,
+        coverage=snapshot.coverage,
+        history_years=snapshot.history_years,
+        contract_months=snapshot.contract_months,
+        premium_support=snapshot.premium_support,
+        implementation_services=snapshot.implementation_services,
+        renewal=snapshot.renewal,
+        requested_discount_percent=snapshot.requested_discount_percent,
+    )
+
+
+def committed_configuration_matches(
+    quote: Quote | None, pricing_state: PricingState | None
+) -> bool:
+    """True if `quote`'s committed v1 reflects exactly this `pricing_state`."""
+    if quote is None or pricing_state is None:
+        return False
+    committed_configuration = _configuration_input_from_snapshot(
+        quote.current_version.configuration_snapshot
+    )
+    return (
+        committed_configuration == pricing_state.configuration
+        and quote.current_version.pricing_snapshot.final_price == pricing_state.result.final_price
+    )
+
+
+def commit_quote(
+    quote: Quote | None,
+    deal_context: DealContext,
+    pricing_state: PricingState | None,
+    stale: bool,
+) -> Quote:
+    """The one place a durable Quote / QuoteVersion v1 is created.
+
+    This is the commitment boundary described in ADR-001: Configure
+    calculations are draft state (PricingState) until the user explicitly
+    proceeds to Review Pricing. Calling this repeatedly with an unchanged,
+    non-stale pricing_state is idempotent -- it returns the already
+    -committed Quote rather than creating a new one. If a Quote is already
+    committed and the current pricing_state reflects a *different*
+    calculation, this refuses to silently replace that history and raises
+    CommitError instead (this phase does not implement appending a new
+    QuoteVersion).
+    """
+    if pricing_state is None:
+        raise CommitError("Calculate a quote before proceeding to Review Pricing.")
+    if stale:
+        raise CommitError(
+            "Configuration has changed since the last calculation. Recalculate "
+            "before proceeding to Review Pricing."
+        )
+    if quote is not None:
+        if committed_configuration_matches(quote, pricing_state):
+            return quote
+        raise CommitError(
+            f"{quote.quote_id} is already committed as v{quote.current_version.version_number} "
+            "with different pricing. Updating a committed quote isn't supported in this phase."
+        )
+    return create_quote(deal_context, pricing_state.configuration, pricing_state.result)

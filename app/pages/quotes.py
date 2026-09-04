@@ -23,16 +23,19 @@ from app_session import (
 )
 from app_state import (
     DEAL_TYPE_LABELS,
+    CommitError,
     ConfigurationInput,
+    DealContext,
     PricingState,
     WorkflowStep,
     calculate_pricing,
-    create_quote,
+    commit_quote,
     derive_status_label,
     is_stale,
     validate_deal_context,
 )
 from components import render_status_badge, render_stepper
+from quotes import Quote
 
 
 def render_quotes_overview() -> None:
@@ -50,7 +53,7 @@ def render_quotes_overview() -> None:
             st.write(f"**{quote.quote_id}** — {quote.customer_name}")
             st.caption(f"Current version: v{quote.current_version.version_number}")
         with badge_col:
-            render_status_badge(derive_status_label(get_pricing_state()))
+            render_status_badge(derive_status_label(quote))
         st.caption("Quote history is not persisted yet — this reflects the current session only.")
 
     if st.button("+ New Quote", type="primary"):
@@ -131,13 +134,22 @@ def render_summary_rail(
         st.caption("✓ Within authority")
 
 
-def render_calculation_success(pricing_state: PricingState, quote) -> None:
+def render_calculation_success(
+    pricing_state: PricingState,
+    quote: Quote | None,
+    deal_context: DealContext,
+    stale: bool,
+) -> None:
     st.success(f"Quote calculated successfully. Final price: ${pricing_state.result.final_price:,.0f}")
-    if quote is not None:
-        st.caption(f"Saved as {quote.quote_id} • v{quote.current_version.version_number}")
     if st.button("Review Pricing →"):
-        set_workflow_step(WorkflowStep.REVIEW_PRICING)
-        st.rerun()
+        try:
+            committed = commit_quote(quote, deal_context, pricing_state, stale)
+        except CommitError as exc:
+            st.error(str(exc))
+        else:
+            set_current_quote(committed)
+            set_workflow_step(WorkflowStep.REVIEW_PRICING)
+            st.rerun()
 
 
 def render_configure(rules: dict) -> None:
@@ -149,8 +161,8 @@ def render_configure(rules: dict) -> None:
         return
 
     pricing_state = get_pricing_state()
-    status_label = derive_status_label(pricing_state)
     quote = get_current_quote()
+    status_label = derive_status_label(quote)
 
     header_col, badge_col = st.columns([5, 1])
     with header_col:
@@ -258,16 +270,10 @@ def render_configure(rules: dict) -> None:
                         configuration=configuration,
                     )
                 )
-                existing_quote_id = quote.quote_id if quote is not None else None
-                set_current_quote(
-                    create_quote(
-                        deal_context, configuration, result, existing_quote_id=existing_quote_id
-                    )
-                )
                 st.rerun()
 
         if pricing_state is not None and not stale:
-            render_calculation_success(pricing_state, quote)
+            render_calculation_success(pricing_state, quote, deal_context, stale)
 
 
 def render_review_pricing_placeholder() -> None:
@@ -275,17 +281,20 @@ def render_review_pricing_placeholder() -> None:
     render_stepper(WorkflowStep.REVIEW_PRICING)
 
     quote = get_current_quote()
-    pricing_state = get_pricing_state()
-    if pricing_state is None or quote is None:
-        st.warning("Calculate a quote before reviewing pricing.")
+    if quote is None:
+        st.warning("Calculate a quote and proceed from Configure before reviewing pricing.")
         if st.button("← Back to Configure"):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
         return
 
-    st.metric("Final price", f"${pricing_state.result.final_price:,.0f}")
-    if pricing_state.result.approval_required:
-        st.warning(pricing_state.result.approval_reason)
+    version = quote.current_version
+    snapshot = version.pricing_snapshot
+    st.caption(f"{quote.quote_id} • v{version.version_number} • committed")
+
+    st.metric("Final price", f"${snapshot.final_price:,.0f}")
+    if snapshot.approval_required:
+        st.warning(snapshot.approval_reason)
     else:
         st.success("Within self-service pricing authority.")
 
