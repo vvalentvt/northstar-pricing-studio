@@ -40,17 +40,25 @@ def init_session_state() -> None:
             st.session_state[key] = default
 
 
+def clear_scenario_exploration_state() -> None:
+    """Discards the current workspace, draft, and exploration/comparison
+    subview flags -- but not the Quote, deal context, or Configure's
+    pricing_state. Used both when starting a new quote (a prior quote's
+    alternatives must never leak in) and right after a successful
+    promotion (the promoted workspace is now based on a stale version and
+    must not be mistaken for current exploration)."""
+    st.session_state["scenario_workspace"] = None
+    st.session_state["scenario_draft_pricing_state"] = None
+    st.session_state["exploring_alternatives"] = False
+    st.session_state["comparing_scenarios"] = False
+
+
 def start_new_quote_workflow() -> None:
     st.session_state["workflow_step"] = WorkflowStep.DEAL_SETUP
     st.session_state["deal_context"] = None
     st.session_state["pricing_state"] = None
     st.session_state["current_quote"] = None
-    # Scenarios are explored against a specific committed QuoteVersion --
-    # starting a new quote must not let a prior quote's alternatives leak in.
-    st.session_state["scenario_workspace"] = None
-    st.session_state["scenario_draft_pricing_state"] = None
-    st.session_state["exploring_alternatives"] = False
-    st.session_state["comparing_scenarios"] = False
+    clear_scenario_exploration_state()
 
 
 def get_workflow_step() -> WorkflowStep | None:

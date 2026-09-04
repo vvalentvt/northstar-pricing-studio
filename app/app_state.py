@@ -444,7 +444,13 @@ _COMPARISON_FIELDS: tuple[tuple[str, Callable[[ConfigurationSnapshot], str]], ..
 )
 
 
-def _resolve_baseline_version(quote: Quote, version_number: int) -> QuoteVersion:
+def resolve_quote_version(quote: Quote, version_number: int) -> QuoteVersion:
+    """Look up one historical QuoteVersion by number.
+
+    Shared by comparison and the scenario-workspace baseline display so
+    both resolve a workspace's anchor the same way rather than assuming
+    it's always quote.current_version.
+    """
     if version_number < 1 or version_number > len(quote.versions):
         raise ValueError(
             f"Quote {quote.quote_id} has no version {version_number} "
@@ -498,7 +504,7 @@ def build_scenario_comparison(
         raise ValueError(
             f"Workspace is anchored to quote {workspace.quote_id}, not {quote.quote_id}"
         )
-    baseline_version = _resolve_baseline_version(quote, workspace.base_version_number)
+    baseline_version = resolve_quote_version(quote, workspace.base_version_number)
     for scenario in scenarios:
         if scenario.source_version_number != workspace.base_version_number:
             raise ValueError(
@@ -523,3 +529,45 @@ def build_scenario_comparison(
         rows.append(ComparisonRow(label=label, values=values, differs=len(set(values)) > 1))
 
     return ScenarioComparison(options=options, rows=tuple(rows), price_deltas=price_deltas)
+
+
+def selected_option_changes(comparison: ScenarioComparison, option_id: str) -> tuple[str, ...]:
+    """"before → after" bullets for every attribute that differs between the
+    baseline (comparison.options[0]) and the given option.
+
+    Reuses the already-computed ScenarioComparison rows -- no new snapshot
+    reads and no recalculation. Pass a comparison built from just the
+    baseline + one scenario to describe that scenario's changes in
+    isolation, regardless of how many alternatives are shown elsewhere.
+    """
+    try:
+        index = next(i for i, option in enumerate(comparison.options) if option.id == option_id)
+    except StopIteration:
+        return ()
+    if index == 0:
+        return ()
+    changes = []
+    for row in comparison.rows:
+        baseline_value = row.values[0]
+        option_value = row.values[index]
+        if baseline_value != option_value:
+            changes.append(f"{baseline_value} → {option_value}")
+    return tuple(changes)
+
+
+def promote_selected_scenario(quote: Quote, workspace: ScenarioWorkspace) -> QuoteVersion:
+    """Create the next durable QuoteVersion from the workspace's selected scenario.
+
+    A thin wrapper around ScenarioWorkspace.promote_selected -- that domain
+    method already validates quote/workspace correspondence and staleness,
+    requires a selection, maps ScenarioSource to QuoteVersionSource, and
+    reuses the scenario's own configuration/pricing snapshots without
+    recalculating anything or calling Quote.add_version directly. This
+    helper only translates the domain's ValueError into ScenarioError, the
+    same exception type commit_quote and create_manual_scenario already
+    use, so the UI has one consistent type to catch.
+    """
+    try:
+        return workspace.promote_selected(quote)
+    except ValueError as exc:
+        raise ScenarioError(str(exc)) from exc

@@ -108,6 +108,9 @@ class ScenarioWorkspace(BaseModel):
                 return scenario
         raise ValueError(f"Unknown scenario_id: {scenario_id}")
 
+    def clear_selection(self) -> None:
+        self.selected_scenario_id = None
+
     def promote_selected(self, quote: Quote) -> QuoteVersion:
         if quote.quote_id != self.quote_id:
             raise ValueError(

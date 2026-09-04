@@ -9,6 +9,7 @@ for path in (ROOT / "src", ROOT / "app"):
 import streamlit as st
 
 from app_session import (
+    clear_scenario_exploration_state,
     get_current_quote,
     get_deal_context,
     get_pricing_state,
@@ -48,6 +49,9 @@ from app_state import (
     derive_status_label,
     format_money,
     is_stale,
+    promote_selected_scenario,
+    resolve_quote_version,
+    selected_option_changes,
     validate_deal_context,
 )
 from components import (
@@ -59,6 +63,7 @@ from components import (
     render_rule_metadata,
     render_saved_scenarios,
     render_scenario_comparison_table,
+    render_selected_scenario_summary,
     render_status_badge,
     render_stepper,
     render_why_this_price,
@@ -327,6 +332,7 @@ def render_review_pricing(rules: dict) -> None:
             meta_parts.append(DEAL_TYPE_LABELS[deal_context.deal_type])
             if deal_context.opportunity_reference:
                 meta_parts.append(deal_context.opportunity_reference)
+        meta_parts.append(f"Pricing version v{review.version_number}")
         meta_parts.append(f"Rule v{review.rule_version}")
         st.caption(" • ".join(meta_parts))
     with badge_col:
@@ -397,7 +403,18 @@ def render_scenario_workspace(quote: Quote, rules: dict) -> None:
     st.caption(f"Quote {workspace.quote_id} • Based on pricing version v{workspace.base_version_number}")
     render_stepper(WorkflowStep.REVIEW_PRICING)
 
-    baseline_version = quote.current_version
+    if workspace.base_version_number != quote.current_version.version_number:
+        st.warning("This quote has changed since these scenarios were created.")
+        st.caption(
+            f"These alternatives were based on pricing version v{workspace.base_version_number}. "
+            f"The current quote is pricing version v{quote.current_version.version_number}."
+        )
+        if st.button("← Back to Review Pricing"):
+            clear_scenario_exploration_state()
+            st.rerun()
+        return
+
+    baseline_version = resolve_quote_version(quote, workspace.base_version_number)
     baseline_snapshot = baseline_version.pricing_snapshot
     baseline_configuration = baseline_version.configuration_snapshot
     defaults = configuration_input_from_snapshot(baseline_configuration)
@@ -582,11 +599,14 @@ def render_scenario_workspace(quote: Quote, rules: dict) -> None:
 
 
 def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> None:
-    """Informational comparison of the committed baseline + saved scenarios.
+    """Comparison + selection + revision commitment.
 
-    Still conceptually part of Review Pricing -- no new workflow step, no
-    selection/promotion here (that's Phase 3C). Comparison cannot mutate
-    the Quote or the ScenarioWorkspace.
+    Still conceptually part of Review Pricing -- no new workflow step.
+    Selection uses ScenarioWorkspace.select_scenario (its
+    selected_scenario_id is the only source of truth; nothing is
+    duplicated in session_state). Only "Create Quote Revision" -- a
+    separate, deliberate action -- calls promote_selected_scenario and
+    creates a QuoteVersion.
     """
     deal_context = get_deal_context()
     customer_name = deal_context.customer_name if deal_context else quote.customer_name
@@ -595,6 +615,17 @@ def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> No
     st.caption(customer_name)
     st.caption(f"Quote {workspace.quote_id} • Based on pricing version v{workspace.base_version_number}")
     render_stepper(WorkflowStep.REVIEW_PRICING)
+
+    if workspace.base_version_number != quote.current_version.version_number:
+        st.warning("This quote has changed since these scenarios were created.")
+        st.caption(
+            f"These alternatives were based on pricing version v{workspace.base_version_number}. "
+            f"The current quote is pricing version v{quote.current_version.version_number}."
+        )
+        if st.button("← Back to Review Pricing"):
+            clear_scenario_exploration_state()
+            st.rerun()
+        return
 
     scenarios = workspace.scenarios
     if len(scenarios) > MAX_COMPARISON_ALTERNATIVES:
@@ -617,7 +648,50 @@ def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> No
         st.info("Select at least one saved scenario to compare against the committed quote.")
     else:
         comparison = build_scenario_comparison(quote, workspace, scenarios)
-        render_scenario_comparison_table(comparison)
+        clicked_id = render_scenario_comparison_table(comparison, workspace.selected_scenario_id)
+        if clicked_id is not None:
+            workspace.select_scenario(clicked_id)
+            set_scenario_workspace(workspace)
+            st.rerun()
+
+    selected_scenario = workspace.selected_scenario
+    if selected_scenario is not None:
+        st.divider()
+        # Built from just the baseline + the selected scenario so this
+        # summary is correct regardless of which alternatives the
+        # multiselect above currently happens to be showing.
+        selection_comparison = build_scenario_comparison(quote, workspace, (selected_scenario,))
+        selected_option = selection_comparison.options[1]
+        price_delta = selection_comparison.price_deltas[1]
+        changes = selected_option_changes(selection_comparison, selected_option.id)
+        render_selected_scenario_summary(selected_option, price_delta, changes)
+
+        st.caption(
+            f'Creating this revision will make "{selected_scenario.name}" the current '
+            f"pricing version. Pricing version v{workspace.base_version_number} will "
+            "remain preserved in quote history."
+        )
+        st.caption("Creating a revision closes the current exploration workspace.")
+
+        clear_col, create_col = st.columns(2)
+        with clear_col:
+            if st.button("Clear Selection"):
+                workspace.clear_selection()
+                set_scenario_workspace(workspace)
+                st.rerun()
+        with create_col:
+            if st.button("Create Quote Revision", type="primary"):
+                try:
+                    new_version = promote_selected_scenario(quote, workspace)
+                except ScenarioError as exc:
+                    st.error(str(exc))
+                else:
+                    set_current_quote(quote)
+                    clear_scenario_exploration_state()
+                    st.toast(
+                        f'Created v{new_version.version_number} from "{selected_scenario.name}".'
+                    )
+                    st.rerun()
 
     st.divider()
     if st.button("← Back to Explore Alternatives"):

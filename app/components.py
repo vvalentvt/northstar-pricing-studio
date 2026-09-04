@@ -9,6 +9,7 @@ import streamlit as st
 from app_state import (
     WORKFLOW_STEP_LABELS,
     WORKFLOW_STEP_ORDER,
+    ComparisonOption,
     ReviewPricingState,
     ScenarioComparison,
     WorkflowStep,
@@ -190,14 +191,21 @@ def render_saved_scenarios(scenarios: tuple[Scenario, ...]) -> str | None:
     return removed_id
 
 
-def render_scenario_comparison_table(comparison: ScenarioComparison) -> None:
+def render_scenario_comparison_table(
+    comparison: ScenarioComparison, selected_scenario_id: str | None = None
+) -> str | None:
     """Renders the committed baseline + scenario columns side by side.
 
     Pure presentation over already-derived ScenarioComparison facts -- no
     domain object is read here and nothing is recalculated. Differing
     configuration rows are bolded (never red/green, which are reserved for
     approval/validation state) so they're easy to spot without implying a
-    judgment about which option is "better".
+    judgment about which option is "better". Selection uses blue/neutral
+    emphasis, never green, since green is reserved for authority state.
+
+    Returns the option id whose Select button was clicked this run, or
+    None. The caller owns the actual
+    ScenarioWorkspace.select_scenario(...) call and any rerun.
     """
     column_widths = [2] + [1] * len(comparison.options)
 
@@ -206,6 +214,19 @@ def render_scenario_comparison_table(comparison: ScenarioComparison) -> None:
     for col, option in zip(header_cols[1:], comparison.options):
         label = "Committed Quote" if option.is_baseline else option.name
         col.markdown(f"**{label}**")
+        if option.id == selected_scenario_id:
+            col.markdown(":blue[Selected]")
+
+    selection_cols = st.columns(column_widths)
+    selection_cols[0].write("")
+    clicked_id: str | None = None
+    for col, option in zip(selection_cols[1:], comparison.options):
+        if option.is_baseline:
+            continue
+        if option.id == selected_scenario_id:
+            col.button("Selected", key=f"select_{option.id}", disabled=True)
+        elif col.button("Select", key=f"select_{option.id}"):
+            clicked_id = option.id
 
     st.divider()
 
@@ -232,3 +253,27 @@ def render_scenario_comparison_table(comparison: ScenarioComparison) -> None:
         row_cols[0].write(f"**{row.label}**" if row.differs else row.label)
         for col, value in zip(row_cols[1:], row.values):
             col.markdown(f"**{value}**" if row.differs else value)
+
+    return clicked_id
+
+
+def render_selected_scenario_summary(
+    option: ComparisonOption, price_delta: float | None, changes: tuple[str, ...]
+) -> None:
+    """The compact confirmation area shown once a scenario is selected.
+
+    Pure presentation over an already-built ComparisonOption + price
+    delta + change bullets -- nothing here reads a domain object or
+    recalculates anything.
+    """
+    st.subheader("Selected Alternative")
+    st.write(f"**{option.name}**")
+    st.metric("Price", format_money(option.final_price))
+    if price_delta is not None:
+        st.caption(f"{format_money(price_delta, signed=True)} vs committed")
+    render_status_badge("NEEDS APPROVAL" if option.approval_required else "PRICED")
+    if changes:
+        st.write("This alternative changes:")
+        for change in changes:
+            st.write(f"• {change}")
+    st.caption("Selecting an alternative does not change the committed quote.")
