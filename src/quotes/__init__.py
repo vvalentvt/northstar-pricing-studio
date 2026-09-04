@@ -7,6 +7,7 @@ from .models import (
     QuoteVersion,
     QuoteVersionSource,
 )
+from .scenarios import Scenario, ScenarioSource, ScenarioWorkspace
 
 __all__ = [
     "AdjustmentSnapshot",
@@ -16,4 +17,7 @@ __all__ = [
     "Quote",
     "QuoteVersion",
     "QuoteVersionSource",
+    "Scenario",
+    "ScenarioSource",
+    "ScenarioWorkspace",
 ]
