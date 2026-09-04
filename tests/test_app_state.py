@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 import sys
 
@@ -239,7 +240,7 @@ def test_review_model_reads_committed_quote_version():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.quote_id == quote.quote_id
     assert review.version_number == quote.current_version.version_number
@@ -260,7 +261,7 @@ def test_review_configuration_does_not_use_live_draft():
     draft_configuration = _configuration(tier="enterprise", users=50)
     assert draft_configuration != committed_configuration
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.configuration.tier == "core"
     assert review.configuration.users == 5
@@ -272,7 +273,7 @@ def test_review_status_within_authority():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.approval_required is False
     assert review.status_label == "PRICED"
@@ -285,7 +286,7 @@ def test_review_status_requires_approval():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.approval_required is True
     assert review.status_label == "NEEDS APPROVAL"
@@ -299,7 +300,7 @@ def test_price_bridge_uses_snapshot_values_without_recalculation():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
     snapshot = quote.current_version.pricing_snapshot
 
     assert review.base_price == snapshot.base_price == result.list_price
@@ -320,7 +321,7 @@ def test_proposal_is_blocked_when_approval_required():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.proposal_available is False
 
@@ -331,6 +332,51 @@ def test_proposal_is_available_when_within_authority():
     result = calculate_pricing(context.customer_name, configuration, RULES)
     quote = create_quote(context, configuration, result)
 
-    review = build_review_pricing(quote, RULES)
+    review = build_review_pricing(quote)
 
     assert review.proposal_available is True
+
+
+def test_build_review_pricing_reads_thresholds_from_the_historical_snapshot():
+    """Review Pricing must derive approval-policy context solely from the
+    committed QuoteVersion -- build_review_pricing takes no `rules`
+    argument at all, so there is no way for it to consult current policy."""
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(requested_discount_percent=5)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote)
+
+    snapshot = quote.current_version.pricing_snapshot
+    assert review.self_service_threshold_percent == snapshot.self_service_threshold_percent
+    assert review.max_allowed_discount_percent == snapshot.max_allowed_discount_percent
+
+
+def test_review_pricing_thresholds_are_immune_to_later_rule_changes():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(requested_discount_percent=5)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review_before = build_review_pricing(quote)
+
+    # Simulate the active pricing policy changing after this quote was
+    # committed -- a newer rule version with tighter discount authority.
+    changed_rules = copy.deepcopy(RULES)
+    changed_rules["version"] = "0.2.0"
+    changed_rules["discount_policy"]["max_self_service_percent"] = 2
+    changed_rules["discount_policy"]["max_allowed_percent"] = 20
+
+    # Recalculating a brand new quote under the changed policy shows the
+    # new thresholds are real and different...
+    new_result = calculate_pricing(context.customer_name, configuration, changed_rules)
+    assert new_result.self_service_threshold_percent == 2
+    assert new_result.max_allowed_discount_percent == 20
+
+    # ...but the already-committed quote's review is completely unaffected,
+    # because build_review_pricing has no `rules` parameter to receive them.
+    review_after = build_review_pricing(quote)
+    assert review_after.self_service_threshold_percent == review_before.self_service_threshold_percent
+    assert review_after.max_allowed_discount_percent == review_before.max_allowed_discount_percent
+    assert review_after.rule_version == review_before.rule_version == RULES["version"]

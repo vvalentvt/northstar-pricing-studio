@@ -277,7 +277,7 @@ def render_configure(rules: dict) -> None:
             render_calculation_success(pricing_state, quote, deal_context, stale)
 
 
-def render_review_pricing(rules: dict) -> None:
+def render_review_pricing() -> None:
     quote = get_current_quote()
     if quote is None:
         st.title("Review Pricing")
@@ -288,7 +288,7 @@ def render_review_pricing(rules: dict) -> None:
             st.rerun()
         return
 
-    review = build_review_pricing(quote, rules)
+    review = build_review_pricing(quote)
     deal_context = get_deal_context()
 
     header_col, badge_col = st.columns([5, 1])
@@ -378,6 +378,6 @@ elif step == WorkflowStep.DEAL_SETUP:
 elif step == WorkflowStep.CONFIGURE:
     render_configure(rules)
 elif step == WorkflowStep.REVIEW_PRICING:
-    render_review_pricing(rules)
+    render_review_pricing()
 elif step == WorkflowStep.PROPOSAL:
     render_proposal_placeholder()

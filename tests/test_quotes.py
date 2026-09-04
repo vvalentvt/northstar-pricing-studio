@@ -298,3 +298,27 @@ def test_negotiation_context_attributes_are_immutable():
         context.required_attributes.append("New requirement")
     with pytest.raises(ValidationError):
         context.required_attributes = ("Different requirement",)
+
+
+def test_pricing_snapshot_preserves_self_service_threshold():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+
+    assert snapshot.self_service_threshold_percent == RULES["discount_policy"]["max_self_service_percent"]
+
+
+def test_pricing_snapshot_preserves_max_allowed_discount_threshold():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+
+    assert snapshot.max_allowed_discount_percent == RULES["discount_policy"]["max_allowed_percent"]
+
+
+def test_pricing_snapshot_policy_thresholds_are_immutable():
+    configuration = _configuration()
+    snapshot = _snapshot(configuration)
+
+    with pytest.raises(ValidationError):
+        snapshot.self_service_threshold_percent = 0
+    with pytest.raises(ValidationError):
+        snapshot.max_allowed_discount_percent = 0

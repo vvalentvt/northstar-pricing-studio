@@ -52,6 +52,12 @@ class PricingSnapshot(BaseModel):
 
     Composed from the pricing engine's QuoteResult so pricing math is never
     duplicated here; this model only preserves the calculated economics.
+
+    self_service_threshold_percent and max_allowed_discount_percent are the
+    discount-authority thresholds that were active at calculation time --
+    preserved here (not read from current rules later) so a historical
+    QuoteVersion stays explainable even after the active pricing policy
+    changes.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -64,6 +70,8 @@ class PricingSnapshot(BaseModel):
     final_price: float
     approval_required: bool
     approval_reason: str | None = None
+    self_service_threshold_percent: float
+    max_allowed_discount_percent: float
     calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
@@ -81,6 +89,8 @@ class PricingSnapshot(BaseModel):
             final_price=result.final_price,
             approval_required=result.approval_required,
             approval_reason=result.approval_reason,
+            self_service_threshold_percent=result.self_service_threshold_percent,
+            max_allowed_discount_percent=result.max_allowed_discount_percent,
             **({"calculated_at": calculated_at} if calculated_at is not None else {}),
         )
 

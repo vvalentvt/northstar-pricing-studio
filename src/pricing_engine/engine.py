@@ -54,4 +54,4 @@ def calculate_quote(request: QuoteRequest, rules: dict) -> QuoteResult:
     max_self_service = float(rules["discount_policy"]["max_self_service_percent"])
     approval_required = request.requested_discount_percent > max_self_service
 
-    return QuoteResult(customer_name=request.customer_name, list_price=list_price, adjustments=adjustments, subtotal_before_discount=round(subtotal,2), discount_amount=round(discount_amount,2), final_price=round(final_price,2), approval_required=approval_required, approval_reason=(f"Discount exceeds {max_self_service}% self-service threshold" if approval_required else None), rule_version=str(rules["version"]))
+    return QuoteResult(customer_name=request.customer_name, list_price=list_price, adjustments=adjustments, subtotal_before_discount=round(subtotal,2), discount_amount=round(discount_amount,2), final_price=round(final_price,2), approval_required=approval_required, approval_reason=(f"Discount exceeds {max_self_service}% self-service threshold" if approval_required else None), rule_version=str(rules["version"]), self_service_threshold_percent=max_self_service, max_allowed_discount_percent=max_allowed)

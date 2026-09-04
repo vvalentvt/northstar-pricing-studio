@@ -27,3 +27,5 @@ class QuoteResult(BaseModel):
     approval_required: bool
     approval_reason: str | None = None
     rule_version: str
+    self_service_threshold_percent: float
+    max_allowed_discount_percent: float

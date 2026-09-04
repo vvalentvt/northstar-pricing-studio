@@ -296,18 +296,18 @@ class ReviewPricingState:
         return not self.approval_required
 
 
-def build_review_pricing(quote: Quote, rules: dict) -> ReviewPricingState:
-    """Transform a committed Quote + the active rule set into view data.
+def build_review_pricing(quote: Quote) -> ReviewPricingState:
+    """Transform a committed Quote into presentation-ready view data.
 
-    Reads exclusively from quote.current_version (never draft state) and
-    from `rules["discount_policy"]` for authority thresholds -- both
-    already-existing sources, so no threshold or pricing value is
-    duplicated here.
+    Reads exclusively from quote.current_version -- never draft state and
+    never the currently active rules. Authority thresholds come from the
+    PricingSnapshot, which preserved the policy values that were active
+    when this QuoteVersion was calculated, so a historical quote stays
+    explainable even after the active pricing YAML changes.
     """
     version = quote.current_version
     snapshot = version.pricing_snapshot
     configuration = version.configuration_snapshot
-    discount_policy = rules["discount_policy"]
     return ReviewPricingState(
         quote_id=quote.quote_id,
         version_number=version.version_number,
@@ -321,8 +321,8 @@ def build_review_pricing(quote: Quote, rules: dict) -> ReviewPricingState:
         approval_required=snapshot.approval_required,
         approval_reason=snapshot.approval_reason,
         requested_discount_percent=configuration.requested_discount_percent,
-        self_service_threshold_percent=float(discount_policy["max_self_service_percent"]),
-        max_allowed_discount_percent=float(discount_policy["max_allowed_percent"]),
+        self_service_threshold_percent=snapshot.self_service_threshold_percent,
+        max_allowed_discount_percent=snapshot.max_allowed_discount_percent,
         rule_version=snapshot.rule_version,
         calculated_at=snapshot.calculated_at,
     )
