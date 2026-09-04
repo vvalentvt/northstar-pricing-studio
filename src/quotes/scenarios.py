@@ -86,6 +86,10 @@ class ScenarioWorkspace(BaseModel):
                 f"Scenario is based on version {scenario.source_version_number}, "
                 f"but this workspace is anchored to version {self.base_version_number}"
             )
+        if any(s.scenario_id == scenario.scenario_id for s in self.scenarios):
+            raise ValueError(
+                f"Scenario {scenario.scenario_id} already exists in this workspace"
+            )
         self.scenarios = (*self.scenarios, scenario)
         return scenario
 
@@ -109,10 +113,12 @@ class ScenarioWorkspace(BaseModel):
             raise ValueError(
                 f"Workspace is anchored to quote {self.quote_id}, not {quote.quote_id}"
             )
-        if self.base_version_number > len(quote.versions):
+        if self.base_version_number != quote.current_version.version_number:
             raise ValueError(
-                f"Workspace base version {self.base_version_number} does not exist "
-                f"on quote {quote.quote_id}"
+                f"Workspace is based on version {self.base_version_number}, but quote "
+                f"{quote.quote_id} is currently at version "
+                f"{quote.current_version.version_number}. Re-evaluate the scenario "
+                "against the current version before promoting."
             )
         selected = self.selected_scenario
         if selected is None:

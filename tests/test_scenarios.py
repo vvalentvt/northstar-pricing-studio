@@ -247,6 +247,66 @@ def test_promote_requires_matching_quote():
         workspace.promote_selected(other_quote)
 
 
+def test_cannot_promote_scenario_from_stale_base_version():
+    quote = _quote_at_v2()
+    workspace = ScenarioWorkspace(quote_id=quote.quote_id, base_version_number=2)
+    scenario = _scenario(source_version_number=2)
+    workspace.add_scenario(scenario)
+    workspace.select_scenario(scenario.scenario_id)
+
+    configuration_v3 = _configuration(users=8)
+    quote.add_version(
+        configuration=configuration_v3,
+        pricing_snapshot=_pricing_snapshot(configuration_v3),
+        source=QuoteVersionSource.MANUAL_REVISION,
+    )
+    assert quote.current_version.version_number == 3
+
+    with pytest.raises(ValueError):
+        workspace.promote_selected(quote)
+
+    assert len(quote.versions) == 3
+
+
+def test_removing_selected_scenario_clears_selection():
+    workspace = ScenarioWorkspace(quote_id="Q-00124", base_version_number=2)
+    scenario_a = _scenario(name="Scenario A", source_version_number=2)
+    scenario_b = _scenario(name="Scenario B", source_version_number=2, tier="growth")
+    workspace.add_scenario(scenario_a)
+    workspace.add_scenario(scenario_b)
+    workspace.select_scenario(scenario_a.scenario_id)
+
+    workspace.remove_scenario(scenario_a.scenario_id)
+
+    assert workspace.selected_scenario_id is None
+    assert workspace.selected_scenario is None
+
+
+def test_removing_unselected_scenario_leaves_selection_unchanged():
+    workspace = ScenarioWorkspace(quote_id="Q-00124", base_version_number=2)
+    scenario_a = _scenario(name="Scenario A", source_version_number=2)
+    scenario_b = _scenario(name="Scenario B", source_version_number=2, tier="growth")
+    workspace.add_scenario(scenario_a)
+    workspace.add_scenario(scenario_b)
+    workspace.select_scenario(scenario_a.scenario_id)
+
+    workspace.remove_scenario(scenario_b.scenario_id)
+
+    assert workspace.selected_scenario_id == scenario_a.scenario_id
+    assert workspace.selected_scenario is scenario_a
+
+
+def test_workspace_rejects_duplicate_scenario_id():
+    workspace = ScenarioWorkspace(quote_id="Q-00124", base_version_number=2)
+    scenario = _scenario(source_version_number=2)
+    workspace.add_scenario(scenario)
+
+    with pytest.raises(ValueError):
+        workspace.add_scenario(scenario)
+
+    assert len(workspace.scenarios) == 1
+
+
 def test_scenario_cannot_be_mutated_after_creation():
     scenario = _scenario()
 
