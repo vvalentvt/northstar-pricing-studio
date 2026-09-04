@@ -8,11 +8,12 @@ types into `st.session_state`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from uuid import uuid4
 
 from pricing_engine import QuoteRequest, QuoteResult, calculate_quote
-from quotes import ConfigurationSnapshot, PricingSnapshot, Quote
+from quotes import AdjustmentSnapshot, ConfigurationSnapshot, PricingSnapshot, Quote
 
 DEFAULT_OWNER = "You"
 
@@ -251,3 +252,77 @@ def commit_quote(
             "with different pricing. Updating a committed quote isn't supported in this phase."
         )
     return create_quote(deal_context, pricing_state.configuration, pricing_state.result)
+
+
+def format_money(amount: float, *, signed: bool = False) -> str:
+    """The one consistent money formatter (whole-dollar, comma-grouped).
+
+    signed=True prepends +/- so callers never hand-roll a sign themselves.
+    """
+    if signed:
+        sign = "+" if amount > 0 else "-" if amount < 0 else ""
+        return f"{sign}${abs(amount):,.0f}"
+    return f"${amount:,.0f}"
+
+
+@dataclass(frozen=True)
+class ReviewPricingState:
+    """Presentation-ready facts for the Review Pricing screen.
+
+    Every field here is a direct read from the committed QuoteVersion
+    (configuration_snapshot / pricing_snapshot) or from the active rule
+    set -- nothing here recalculates a price.
+    """
+
+    quote_id: str
+    version_number: int
+    status_label: str
+    configuration: ConfigurationSnapshot
+    base_price: float
+    adjustments: tuple[AdjustmentSnapshot, ...]
+    subtotal_before_discount: float
+    discount_amount: float
+    final_price: float
+    approval_required: bool
+    approval_reason: str | None
+    requested_discount_percent: float
+    self_service_threshold_percent: float
+    max_allowed_discount_percent: float
+    rule_version: str
+    calculated_at: datetime
+
+    @property
+    def proposal_available(self) -> bool:
+        return not self.approval_required
+
+
+def build_review_pricing(quote: Quote, rules: dict) -> ReviewPricingState:
+    """Transform a committed Quote + the active rule set into view data.
+
+    Reads exclusively from quote.current_version (never draft state) and
+    from `rules["discount_policy"]` for authority thresholds -- both
+    already-existing sources, so no threshold or pricing value is
+    duplicated here.
+    """
+    version = quote.current_version
+    snapshot = version.pricing_snapshot
+    configuration = version.configuration_snapshot
+    discount_policy = rules["discount_policy"]
+    return ReviewPricingState(
+        quote_id=quote.quote_id,
+        version_number=version.version_number,
+        status_label=derive_status_label(quote),
+        configuration=configuration,
+        base_price=snapshot.base_price,
+        adjustments=snapshot.adjustments,
+        subtotal_before_discount=snapshot.subtotal_before_discount,
+        discount_amount=snapshot.discount_amount,
+        final_price=snapshot.final_price,
+        approval_required=snapshot.approval_required,
+        approval_reason=snapshot.approval_reason,
+        requested_discount_percent=configuration.requested_discount_percent,
+        self_service_threshold_percent=float(discount_policy["max_self_service_percent"]),
+        max_allowed_discount_percent=float(discount_policy["max_allowed_percent"]),
+        rule_version=snapshot.rule_version,
+        calculated_at=snapshot.calculated_at,
+    )

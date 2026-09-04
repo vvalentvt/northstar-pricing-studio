@@ -28,13 +28,25 @@ from app_state import (
     DealContext,
     PricingState,
     WorkflowStep,
+    build_review_pricing,
     calculate_pricing,
     commit_quote,
     derive_status_label,
+    format_money,
     is_stale,
     validate_deal_context,
 )
-from components import render_status_badge, render_stepper
+from components import (
+    render_approval_callout,
+    render_configuration_bullets,
+    render_configuration_summary,
+    render_price_bridge,
+    render_price_card,
+    render_rule_metadata,
+    render_status_badge,
+    render_stepper,
+    render_why_this_price,
+)
 from quotes import Quote
 
 
@@ -112,18 +124,7 @@ def render_summary_rail(
     else:
         st.metric("Price", "Not calculated")
 
-    st.write(f"**{configuration.tier.title()}**")
-    st.caption(f"{configuration.users} users")
-    st.caption(configuration.coverage.replace("_", " ").title())
-    depth = configuration.history_years
-    st.caption(f"{depth} year{'s' if depth != 1 else ''} history")
-    st.caption(f"{configuration.contract_months}-month term")
-    if configuration.renewal:
-        st.caption("Renewal")
-    if configuration.premium_support:
-        st.caption("Premium support")
-    if configuration.implementation_services:
-        st.caption("Implementation services")
+    render_configuration_bullets(configuration)
 
     st.divider()
     st.write("**Discount**")
@@ -276,34 +277,93 @@ def render_configure(rules: dict) -> None:
             render_calculation_success(pricing_state, quote, deal_context, stale)
 
 
-def render_review_pricing_placeholder() -> None:
-    st.title("Review Pricing")
-    render_stepper(WorkflowStep.REVIEW_PRICING)
-
+def render_review_pricing(rules: dict) -> None:
     quote = get_current_quote()
     if quote is None:
+        st.title("Review Pricing")
+        render_stepper(WorkflowStep.REVIEW_PRICING)
         st.warning("Calculate a quote and proceed from Configure before reviewing pricing.")
         if st.button("← Back to Configure"):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
         return
 
-    version = quote.current_version
-    snapshot = version.pricing_snapshot
-    st.caption(f"{quote.quote_id} • v{version.version_number} • committed")
+    review = build_review_pricing(quote, rules)
+    deal_context = get_deal_context()
 
-    st.metric("Final price", f"${snapshot.final_price:,.0f}")
-    if snapshot.approval_required:
-        st.warning(snapshot.approval_reason)
-    else:
-        st.success("Within self-service pricing authority.")
+    header_col, badge_col = st.columns([5, 1])
+    with header_col:
+        st.title(deal_context.customer_name if deal_context else quote.customer_name)
+        meta_parts = [f"Quote {review.quote_id}"]
+        if deal_context is not None:
+            meta_parts.append(DEAL_TYPE_LABELS[deal_context.deal_type])
+            if deal_context.opportunity_reference:
+                meta_parts.append(deal_context.opportunity_reference)
+        meta_parts.append(f"Rule v{review.rule_version}")
+        st.caption(" • ".join(meta_parts))
+    with badge_col:
+        render_status_badge(review.status_label)
 
-    st.caption(
-        "The full Review Pricing experience (price bridge, negotiation entry points) "
-        "is planned for the next phase."
+    render_stepper(
+        WorkflowStep.REVIEW_PRICING,
+        locked_steps=(WorkflowStep.PROPOSAL,) if review.approval_required else (),
     )
-    if st.button("← Back to Configure"):
-        set_workflow_step(WorkflowStep.CONFIGURE)
+
+    if review.approval_required:
+        render_approval_callout(review)
+    else:
+        render_price_card(review)
+
+    bridge_col, config_col = st.columns([2, 1])
+    with bridge_col:
+        render_price_bridge(review)
+    with config_col:
+        render_configuration_summary(review)
+
+    render_why_this_price(review)
+    render_rule_metadata(review)
+
+    st.divider()
+    action_col1, action_col2 = st.columns(2)
+    with action_col1:
+        edit_label = "Revise Configuration" if review.approval_required else "Edit Configuration"
+        if st.button(edit_label):
+            set_workflow_step(WorkflowStep.CONFIGURE)
+            st.rerun()
+    with action_col2:
+        if review.proposal_available:
+            if st.button("Continue to Proposal →", type="primary"):
+                set_workflow_step(WorkflowStep.PROPOSAL)
+                st.rerun()
+        else:
+            st.button("Request Approval — planned", disabled=True)
+
+
+def render_proposal_placeholder() -> None:
+    st.title("Proposal")
+    render_stepper(WorkflowStep.PROPOSAL)
+
+    quote = get_current_quote()
+    if quote is None:
+        st.warning("Calculate a quote and proceed through Review Pricing first.")
+        if st.button("← Back to Configure"):
+            set_workflow_step(WorkflowStep.CONFIGURE)
+            st.rerun()
+        return
+
+    snapshot = quote.current_version.pricing_snapshot
+    if snapshot.approval_required:
+        st.warning("Proposal is locked until the pricing exception is approved.")
+        if st.button("← Back to Review Pricing"):
+            set_workflow_step(WorkflowStep.REVIEW_PRICING)
+            st.rerun()
+        return
+
+    st.success(f"{quote.quote_id} is ready for proposal assembly.")
+    st.metric("Investment", format_money(snapshot.final_price))
+    st.caption("Proposal document generation is planned for a later phase.")
+    if st.button("← Back to Review Pricing"):
+        set_workflow_step(WorkflowStep.REVIEW_PRICING)
         st.rerun()
 
 
@@ -318,4 +378,6 @@ elif step == WorkflowStep.DEAL_SETUP:
 elif step == WorkflowStep.CONFIGURE:
     render_configure(rules)
 elif step == WorkflowStep.REVIEW_PRICING:
-    render_review_pricing_placeholder()
+    render_review_pricing(rules)
+elif step == WorkflowStep.PROPOSAL:
+    render_proposal_placeholder()

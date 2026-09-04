@@ -16,11 +16,13 @@ from app_state import (
     DealContext,
     DealType,
     PricingState,
+    build_review_pricing,
     calculate_pricing,
     commit_quote,
     configuration_to_quote_request,
     create_quote,
     derive_status_label,
+    format_money,
     is_stale,
     validate_deal_context,
 )
@@ -222,3 +224,113 @@ def test_commit_quote_refuses_to_silently_replace_committed_history():
     assert len(committed.versions) == 1
     assert committed.current_version.pricing_snapshot.final_price == original_final_price
     assert committed.current_version.configuration_snapshot.tier == "core"
+
+
+def test_format_money_formats_consistently():
+    assert format_money(45000) == "$45,000"
+    assert format_money(3750, signed=True) == "+$3,750"
+    assert format_money(-2630, signed=True) == "-$2,630"
+    assert format_money(0, signed=True) == "$0"
+
+
+def test_review_model_reads_committed_quote_version():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(users=8, premium_support=True)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.quote_id == quote.quote_id
+    assert review.version_number == quote.current_version.version_number
+    assert review.configuration is quote.current_version.configuration_snapshot
+    assert review.adjustments is quote.current_version.pricing_snapshot.adjustments
+    assert review.final_price == quote.current_version.pricing_snapshot.final_price
+    assert review.rule_version == quote.current_version.pricing_snapshot.rule_version
+
+
+def test_review_configuration_does_not_use_live_draft():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    committed_configuration = _configuration(tier="core", users=5)
+    result = calculate_pricing(context.customer_name, committed_configuration, RULES)
+    quote = create_quote(context, committed_configuration, result)
+
+    # A draft the user is experimenting with back on Configure -- never
+    # passed to build_review_pricing, which only ever takes `quote`.
+    draft_configuration = _configuration(tier="enterprise", users=50)
+    assert draft_configuration != committed_configuration
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.configuration.tier == "core"
+    assert review.configuration.users == 5
+
+
+def test_review_status_within_authority():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(requested_discount_percent=5)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.approval_required is False
+    assert review.status_label == "PRICED"
+    assert review.self_service_threshold_percent == RULES["discount_policy"]["max_self_service_percent"]
+
+
+def test_review_status_requires_approval():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(tier="growth", requested_discount_percent=15)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.approval_required is True
+    assert review.status_label == "NEEDS APPROVAL"
+    assert review.approval_reason == result.approval_reason
+    assert review.approval_reason is not None
+
+
+def test_price_bridge_uses_snapshot_values_without_recalculation():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(users=8, coverage="north_america", history_years=3)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+    snapshot = quote.current_version.pricing_snapshot
+
+    assert review.base_price == snapshot.base_price == result.list_price
+    assert review.subtotal_before_discount == snapshot.subtotal_before_discount == result.subtotal_before_discount
+    assert review.discount_amount == snapshot.discount_amount == result.discount_amount
+    assert review.final_price == snapshot.final_price == result.final_price
+    assert [a.amount for a in review.adjustments] == [a.amount for a in result.adjustments]
+    # the base price plus every adjustment reconciles to the recorded subtotal --
+    # proving these are the engine's own numbers, not UI-side arithmetic
+    assert review.base_price + sum(a.amount for a in review.adjustments) == pytest.approx(
+        review.subtotal_before_discount
+    )
+
+
+def test_proposal_is_blocked_when_approval_required():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(tier="growth", requested_discount_percent=15)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.proposal_available is False
+
+
+def test_proposal_is_available_when_within_authority():
+    context = DealContext(customer_name="Acme", deal_type=DealType.NEW_BUSINESS)
+    configuration = _configuration(requested_discount_percent=5)
+    result = calculate_pricing(context.customer_name, configuration, RULES)
+    quote = create_quote(context, configuration, result)
+
+    review = build_review_pricing(quote, RULES)
+
+    assert review.proposal_available is True
