@@ -19,6 +19,7 @@ from quotes import (
     ConfigurationSnapshot,
     PricingSnapshot,
     Quote,
+    QuoteVersion,
     Scenario,
     ScenarioSource,
     ScenarioWorkspace,
@@ -443,8 +444,18 @@ _COMPARISON_FIELDS: tuple[tuple[str, Callable[[ConfigurationSnapshot], str]], ..
 )
 
 
-def _comparison_option_from_baseline(quote: Quote) -> ComparisonOption:
-    version = quote.current_version
+def _resolve_baseline_version(quote: Quote, version_number: int) -> QuoteVersion:
+    if version_number < 1 or version_number > len(quote.versions):
+        raise ValueError(
+            f"Quote {quote.quote_id} has no version {version_number} "
+            f"(it has {len(quote.versions)})"
+        )
+    # Quote enforces sequential, gap-free numbering starting at 1, so this
+    # index is always exact -- no separate lookup structure is needed.
+    return quote.versions[version_number - 1]
+
+
+def _comparison_option_from_version(version: QuoteVersion) -> ComparisonOption:
     snapshot = version.pricing_snapshot
     return ComparisonOption(
         id=f"baseline-v{version.version_number}",
@@ -468,17 +479,36 @@ def _comparison_option_from_scenario(scenario: Scenario) -> ComparisonOption:
 
 
 def build_scenario_comparison(
-    quote: Quote, scenarios: tuple[Scenario, ...]
+    quote: Quote, workspace: ScenarioWorkspace, scenarios: tuple[Scenario, ...]
 ) -> ScenarioComparison:
-    """Pure comparison facts for the committed baseline + selected scenarios.
+    """Pure comparison facts for the workspace's baseline + selected scenarios.
 
-    Reads exclusively from quote.current_version and each Scenario's own
-    snapshots -- never draft state, never current rules. The only
-    arithmetic here is a price-delta subtraction between two already
-    -stored final_price values; no pricing component is recalculated.
+    The baseline is the QuoteVersion identified by
+    workspace.base_version_number -- deliberately NOT quote.current_version.
+    Once scenario promotion can advance a quote past the version a
+    workspace was anchored to, comparing against current_version would
+    misrepresent a scenario's lineage; resolving against the workspace's
+    own base version keeps a comparison historically correct regardless of
+    later promotions elsewhere. Reads exclusively from existing snapshots
+    -- never draft state, never current rules -- and the only arithmetic
+    here is a price-delta subtraction between two already-stored
+    final_price values; no pricing component is recalculated.
     """
+    if workspace.quote_id != quote.quote_id:
+        raise ValueError(
+            f"Workspace is anchored to quote {workspace.quote_id}, not {quote.quote_id}"
+        )
+    baseline_version = _resolve_baseline_version(quote, workspace.base_version_number)
+    for scenario in scenarios:
+        if scenario.source_version_number != workspace.base_version_number:
+            raise ValueError(
+                f"Scenario {scenario.scenario_id} is based on version "
+                f"{scenario.source_version_number}, not workspace base version "
+                f"{workspace.base_version_number}"
+            )
+
     options = (
-        _comparison_option_from_baseline(quote),
+        _comparison_option_from_version(baseline_version),
         *(_comparison_option_from_scenario(s) for s in scenarios),
     )
     baseline_price = options[0].final_price

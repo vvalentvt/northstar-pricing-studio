@@ -616,7 +616,7 @@ def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> No
     if not scenarios:
         st.info("Select at least one saved scenario to compare against the committed quote.")
     else:
-        comparison = build_scenario_comparison(quote, scenarios)
+        comparison = build_scenario_comparison(quote, workspace, scenarios)
         render_scenario_comparison_table(comparison)
 
     st.divider()
