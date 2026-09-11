@@ -72,7 +72,7 @@ from components import (
     render_budget_fit_baseline_fits,
     render_budget_fit_baseline_summary,
     render_budget_fit_no_fit,
-    render_budget_fit_recommendation,
+    render_budget_fit_recommendations,
     render_budget_fit_results_header,
     render_configuration_bullets,
     render_configuration_summary,
@@ -872,8 +872,7 @@ def render_budget_fit(quote: Quote, rules: dict) -> None:
         render_budget_fit_baseline_fits(budget_fit_state.result)
     else:
         render_budget_fit_results_header(budget_fit_state.result)
-        for rank, view in enumerate(build_recommendation_views(budget_fit_state), start=1):
-            render_budget_fit_recommendation(view, rank=rank)
+        render_budget_fit_recommendations(build_recommendation_views(budget_fit_state))
 
     st.divider()
     if st.button("← Back to Review Pricing", key=f"budget_fit_back_{form_key}"):

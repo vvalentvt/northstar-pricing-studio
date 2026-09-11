@@ -32,6 +32,7 @@ from app_state import (
     calculate_pricing,
     create_quote,
     describe_preserved_capabilities,
+    format_money,
     run_budget_fit,
 )
 from quotes import ConfigurationSnapshot, PricingSnapshot, QuoteVersionSource
@@ -351,9 +352,29 @@ def test_budget_fit_ui_smoke_flow_renders_recommendations():
     for rec in view_state.result.recommendations:
         assert rec.pricing_snapshot.final_price <= 45000.0
 
-    # Capability preservation, changed fields, and approval status render.
-    assert "of requested capability preserved" in markdown_text
-    assert "Changes from current quote:" in markdown_text
+    # Recommendations render horizontally: one distinct st.columns() column
+    # per recommendation, each carrying its own price -- not one stacked
+    # column with everything in it -- and rank order (leftmost = rank 1,
+    # RECOMMENDED) matches BudgetFitResult's own order, unmodified.
+    price_columns = [c for c in at.columns if any(m.value.startswith("### $") for m in c.markdown)]
+    assert len(price_columns) == len(view_state.result.recommendations)
+    expected_prices = [
+        f"### {format_money(rec.pricing_snapshot.final_price)}"
+        for rec in view_state.result.recommendations
+    ]
+    actual_prices = [
+        next(m.value for m in column.markdown if m.value.startswith("### $"))
+        for column in price_columns
+    ]
+    assert actual_prices == expected_prices
+    assert any(":blue[**RECOMMENDED**]" in m.value for m in price_columns[0].markdown)
+
+    # Capability preservation, budget headroom, changed fields, and
+    # approval status all render (Changes/Preserved section headers are
+    # captions, not markdown).
+    assert "capability preserved" in markdown_text
+    assert "under customer budget" in caption_text
+    assert "Changes" in caption_text
     assert ":green[**PRICED**]" in markdown_text or ":orange[**NEEDS APPROVAL**]" in markdown_text
 
     # Read-only: no Select/Promote/Create Revision action exists.
@@ -388,10 +409,11 @@ def test_budget_fit_ui_smoke_flow_stale_inputs_after_budget_change():
     assert not at.exception
 
     markdown_text = " ".join(m.value for m in at.markdown)
+    caption_text = " ".join(c.value for c in at.caption)
     info_text = " ".join(i.value for i in at.info)
     # The previous recommendations must not still be represented as current.
     assert ":blue[**RECOMMENDED**]" not in markdown_text
-    assert "Changes from current quote:" not in markdown_text
+    assert "Changes" not in caption_text
     assert "run budget fit again" in info_text.lower()
 
 

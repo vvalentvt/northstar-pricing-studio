@@ -329,6 +329,23 @@ def render_budget_fit_no_fit(result: BudgetFitResult) -> None:
     st.write("- lowering the minimum user requirement")
 
 
+def render_budget_fit_recommendations(views: tuple[BudgetFitRecommendationView, ...]) -> None:
+    """Render 1-3 recommendations side by side, one column per option.
+
+    Northstar is desktop-first and Budget Fit returns at most a handful of
+    options, so comparison -- the user's actual task -- is far easier
+    column-by-column than scrolling through stacked cards. Order is
+    exactly `views`' own order (already rank order from BudgetFitResult);
+    nothing here reorders or filters. If Streamlit stacks these columns at
+    a narrow viewport, that is an acceptable, unstyled fallback -- no
+    custom responsive layout is built for it.
+    """
+    columns = st.columns(len(views))
+    for column, (rank, view) in zip(columns, enumerate(views, start=1)):
+        with column:
+            render_budget_fit_recommendation(view, rank=rank)
+
+
 def render_budget_fit_recommendation(view: BudgetFitRecommendationView, *, rank: int) -> None:
     """One ranked, explainable Budget Fit recommendation card.
 
@@ -338,6 +355,11 @@ def render_budget_fit_recommendation(view: BudgetFitRecommendationView, *, rank:
     own BudgetFitRecommendation; nothing is recalculated or reranked.
     Rank 1 gets blue/neutral emphasis, never green -- green is reserved for
     "within pricing authority" workflow status, not ranking position.
+    Designed to sit inside a narrow st.columns() slot: price stays the
+    single most prominent value, capability/budget figures are visible but
+    secondary, and changed fields render as compact label/value rows
+    (rather than prose sentences) so they line up for comparison across
+    columns.
     """
     rec = view.recommendation
     with st.container(border=True):
@@ -356,18 +378,21 @@ def render_budget_fit_recommendation(view: BudgetFitRecommendationView, *, rank:
             st.caption("Same as current quote")
         st.caption(f"{format_money(view.budget_headroom)} under customer budget")
 
-        st.write(f"**{rec.capability_score:.1%}** of requested capability preserved")
-        st.write(f"**{rec.budget_utilization:.1%}** of available budget used")
+        st.write(f"**{rec.capability_score:.1%}** capability preserved")
+        st.write(f"**{rec.budget_utilization:.1%}** budget used")
 
         render_status_badge("NEEDS APPROVAL" if rec.pricing_snapshot.approval_required else "PRICED")
 
         if rec.changed_fields:
-            st.write("**Changes from current quote:**")
+            st.divider()
+            st.caption("Changes")
             for change in rec.changed_fields:
                 label = BUDGET_FIT_FIELD_LABELS.get(change.field, change.field.value)
-                st.write(f"• {label}: {change.baseline_value} → {change.candidate_value}")
+                st.write(f"**{label}**")
+                st.caption(f"{change.baseline_value} → {change.candidate_value}")
 
         if view.preserved_capabilities:
-            st.write("**Preserved:**")
+            st.divider()
+            st.caption("Preserved")
             for item in view.preserved_capabilities:
-                st.write(f"• {item}")
+                st.write(item)
