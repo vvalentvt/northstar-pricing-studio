@@ -52,6 +52,8 @@ from app_state import (
     build_review_pricing,
     build_scenario_comparison,
     budget_fit_inputs_changed,
+    budget_fit_shared_preserved_capabilities,
+    budget_fit_tradeoff_fields,
     budget_fit_version_is_stale,
     calculate_pricing,
     commit_quote,
@@ -71,8 +73,8 @@ from components import (
     render_approval_callout,
     render_budget_fit_baseline_fits,
     render_budget_fit_baseline_summary,
+    render_budget_fit_comparison,
     render_budget_fit_no_fit,
-    render_budget_fit_recommendations,
     render_budget_fit_results_header,
     render_configuration_bullets,
     render_configuration_summary,
@@ -872,7 +874,15 @@ def render_budget_fit(quote: Quote, rules: dict) -> None:
         render_budget_fit_baseline_fits(budget_fit_state.result)
     else:
         render_budget_fit_results_header(budget_fit_state.result)
-        render_budget_fit_recommendations(build_recommendation_views(budget_fit_state))
+        views = build_recommendation_views(budget_fit_state)
+        recommendations = tuple(v.recommendation for v in views)
+        render_budget_fit_comparison(
+            views,
+            tradeoff_fields=budget_fit_tradeoff_fields(recommendations),
+            shared_preserved=budget_fit_shared_preserved_capabilities(
+                recommendations, budget_fit_state.request.baseline_configuration
+            ),
+        )
 
     st.divider()
     if st.button("← Back to Review Pricing", key=f"budget_fit_back_{form_key}"):

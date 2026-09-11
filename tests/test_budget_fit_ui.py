@@ -28,10 +28,15 @@ from app_state import (
     build_budget_fit_constraints,
     build_recommendation_views,
     budget_fit_inputs_changed,
+    budget_fit_recommendation_rationale,
+    budget_fit_shared_preserved_capabilities,
+    budget_fit_tradeoff_cell,
+    budget_fit_tradeoff_fields,
     budget_fit_version_is_stale,
     calculate_pricing,
     create_quote,
     describe_preserved_capabilities,
+    format_budget_fit_headroom,
     format_money,
     run_budget_fit,
 )
@@ -287,6 +292,98 @@ def test_budget_fit_ui_describes_preserved_capabilities_from_baseline():
     assert describe_preserved_capabilities((BudgetFitField.IMPLEMENTATION_SERVICES,), baseline) == ()
 
 
+def _realistic_45k_recommendations():
+    """The same $45,000 negotiation scenario used throughout Phase 4A/4B:
+    Enterprise/10 users/North America/3yr/Premium support baseline,
+    coverage locked, minimum 5 users -- three recommendations where the
+    changed/preserved fields deliberately differ across options."""
+    quote = _committed_quote(
+        _configuration(
+            tier="enterprise", users=10, coverage="north_america", history_years=3,
+            contract_months=24, premium_support=True, implementation_services=False,
+            renewal=False, requested_discount_percent=0.0,
+        )
+    )
+    view_state = run_budget_fit(
+        quote, 45000.0,
+        BudgetFitConstraints(locked_fields=frozenset({BudgetFitField.COVERAGE}), minimum_users=5),
+        RULES,
+    )
+    return view_state.request.baseline_configuration, view_state.result.recommendations
+
+
+def test_budget_fit_ui_tradeoff_fields_are_union_of_changed_fields():
+    baseline, recommendations = _realistic_45k_recommendations()
+    assert len(recommendations) == 3
+
+    fields = budget_fit_tradeoff_fields(recommendations)
+
+    # Every field that changed in at least one option is included; a field
+    # preserved by every option (coverage, history, premium support) is
+    # deliberately excluded -- it belongs in the shared summary instead.
+    assert set(fields) == {
+        BudgetFitField.TIER, BudgetFitField.CONTRACT_MONTHS,
+        BudgetFitField.RENEWAL, BudgetFitField.USERS,
+    }
+    assert BudgetFitField.COVERAGE not in fields
+    assert BudgetFitField.HISTORY_YEARS not in fields
+    assert BudgetFitField.PREMIUM_SUPPORT not in fields
+
+
+def test_budget_fit_ui_tradeoff_cell_shows_no_change_symbol_when_unchanged():
+    baseline, recommendations = _realistic_45k_recommendations()
+    rank_1, rank_2, rank_3 = recommendations
+
+    # Rank 1 changes tier and term but not users -- confirmed against the
+    # engine's own changed_fields, not rediscovered independently.
+    assert budget_fit_tradeoff_cell(rank_1, BudgetFitField.TIER) == "Enterprise → Core"
+    assert budget_fit_tradeoff_cell(rank_1, BudgetFitField.USERS) == "—"
+    # Rank 3 changes users but preserves the contract term.
+    assert budget_fit_tradeoff_cell(rank_3, BudgetFitField.CONTRACT_MONTHS) == "—"
+    assert budget_fit_tradeoff_cell(rank_3, BudgetFitField.USERS) == "10 → 9"
+
+
+def test_budget_fit_ui_shared_preserved_capabilities_is_intersection():
+    baseline, recommendations = _realistic_45k_recommendations()
+
+    shared = budget_fit_shared_preserved_capabilities(recommendations, baseline)
+
+    # Coverage/history/premium support are preserved by all three options;
+    # users is preserved by two of three (rank 3 drops to 9) so it must
+    # NOT appear in the shared summary even though it's "mostly" preserved.
+    assert shared == ("North America coverage", "3 years history", "Premium support")
+    assert "10 users" not in shared
+
+
+def test_budget_fit_ui_shared_preserved_capabilities_empty_when_no_recommendations():
+    baseline = ConfigurationSnapshot(
+        customer_name="Acme", tier="enterprise", users=10, coverage="north_america",
+        history_years=3, contract_months=24, premium_support=True,
+        implementation_services=False, renewal=False, requested_discount_percent=0,
+    )
+
+    assert budget_fit_shared_preserved_capabilities((), baseline) == ()
+
+
+def test_budget_fit_ui_recommendation_rationale_uses_existing_facts_only():
+    _, recommendations = _realistic_45k_recommendations()
+    top = recommendations[0]
+
+    rationale = budget_fit_recommendation_rationale(top)
+
+    assert "Highest capability preservation" in rationale
+    assert f"{top.change_count}" in rationale
+    change_word = "change" if top.change_count == 1 else "changes"
+    assert change_word in rationale
+
+
+def test_budget_fit_ui_format_budget_fit_headroom():
+    assert format_budget_fit_headroom(0.0) == "At budget"
+    assert format_budget_fit_headroom(0.4) == "At budget"  # rounds to $0
+    assert format_budget_fit_headroom(610.0) == "$610 under budget"
+    assert format_budget_fit_headroom(1498.2) == "$1,498 under budget"
+
+
 # ---------------------------------------------------------------------------
 # Presentation / Streamlit smoke flow (AppTest) -- the realistic negotiation
 # scenario from ADR-002 / Phase 4A's integration test, driven through the
@@ -352,30 +449,49 @@ def test_budget_fit_ui_smoke_flow_renders_recommendations():
     for rec in view_state.result.recommendations:
         assert rec.pricing_snapshot.final_price <= 45000.0
 
-    # Recommendations render horizontally: one distinct st.columns() column
-    # per recommendation, each carrying its own price -- not one stacked
-    # column with everything in it -- and rank order (leftmost = rank 1,
-    # RECOMMENDED) matches BudgetFitResult's own order, unmodified.
-    price_columns = [c for c in at.columns if any(m.value.startswith("### $") for m in c.markdown)]
-    assert len(price_columns) == len(view_state.result.recommendations)
+    # Recommendations render as a comparison board (one row per attribute,
+    # one column per option) rather than three stacked cards. The Price
+    # row's bold values appear in engine rank order, unmodified.
     expected_prices = [
-        f"### {format_money(rec.pricing_snapshot.final_price)}"
+        f"**{format_money(rec.pricing_snapshot.final_price)}**"
         for rec in view_state.result.recommendations
     ]
-    actual_prices = [
-        next(m.value for m in column.markdown if m.value.startswith("### $"))
-        for column in price_columns
-    ]
+    actual_prices = [m.value for m in at.markdown if m.value.startswith("**$")]
     assert actual_prices == expected_prices
-    assert any(":blue[**RECOMMENDED**]" in m.value for m in price_columns[0].markdown)
 
-    # Capability preservation, budget headroom, changed fields, and
-    # approval status all render (Changes/Preserved section headers are
-    # captions, not markdown).
-    assert "capability preserved" in markdown_text
-    assert "under customer budget" in caption_text
-    assert "Changes" in caption_text
-    assert ":green[**PRICED**]" in markdown_text or ":orange[**NEEDS APPROVAL**]" in markdown_text
+    # Capability scores render in rank order and match the engine exactly.
+    expected_capability = [f"{rec.capability_score:.1%}" for rec in view_state.result.recommendations]
+    actual_capability = [
+        m.value for m in at.markdown
+        if m.value.endswith("%") and not m.value.startswith("**")
+    ]
+    assert actual_capability == expected_capability
+
+    # Approval states render in rank order and match the engine exactly.
+    expected_approval = [
+        ":orange[**NEEDS APPROVAL**]" if rec.pricing_snapshot.approval_required else ":green[**PRICED**]"
+        for rec in view_state.result.recommendations
+    ]
+    actual_approval = [m.value for m in at.markdown if "PRICED" in m.value or "NEEDS APPROVAL" in m.value]
+    assert actual_approval == expected_approval
+
+    # Budget headroom is visible.
+    assert "under budget" in markdown_text
+
+    # Trade-offs use the engine's own FieldChange data -- spot-check one
+    # known change from the realistic scenario, and confirm it appears
+    # once per option that actually changed it (Tier changes in all three).
+    assert "Trade-offs" in caption_text
+    assert markdown_text.count("Enterprise → Core") == len(view_state.result.recommendations)
+
+    # A field preserved by every displayed recommendation is stated once
+    # in the shared summary, not repeated per column.
+    assert "Preserved across all options" in caption_text
+    shared_line = next(m.value for m in at.markdown if "coverage" in m.value and "•" in m.value)
+    assert markdown_text.count(shared_line) == 1
+
+    # Rank 1's rationale is present and derived from existing facts only.
+    assert "Highest capability preservation" in caption_text
 
     # Read-only: no Select/Promote/Create Revision action exists.
     button_labels = {b.label for b in at.button}
@@ -413,7 +529,8 @@ def test_budget_fit_ui_smoke_flow_stale_inputs_after_budget_change():
     info_text = " ".join(i.value for i in at.info)
     # The previous recommendations must not still be represented as current.
     assert ":blue[**RECOMMENDED**]" not in markdown_text
-    assert "Changes" not in caption_text
+    assert "Trade-offs" not in caption_text
+    assert "Preserved across all options" not in caption_text
     assert "run budget fit again" in info_text.lower()
 
 

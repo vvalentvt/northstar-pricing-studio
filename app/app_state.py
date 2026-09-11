@@ -771,7 +771,7 @@ def describe_preserved_capabilities(
 
 @dataclass(frozen=True)
 class BudgetFitRecommendationView:
-    """Presentation-ready facts for one recommendation card.
+    """Presentation-ready facts for one recommendation.
 
     The only arithmetic here is a subtraction between two already-known
     monetary values (current committed price, target budget, and the
@@ -782,13 +782,11 @@ class BudgetFitRecommendationView:
     recommendation: BudgetFitRecommendation
     price_delta_vs_current: float
     budget_headroom: float
-    preserved_capabilities: tuple[str, ...]
 
 
 def build_recommendation_views(
     view_state: BudgetFitViewState,
 ) -> tuple[BudgetFitRecommendationView, ...]:
-    baseline = view_state.request.baseline_configuration
     result = view_state.result
     views = []
     for rec in result.recommendations:
@@ -798,9 +796,96 @@ def build_recommendation_views(
                 recommendation=rec,
                 price_delta_vs_current=price - result.baseline_price,
                 budget_headroom=result.target_budget - price,
-                preserved_capabilities=describe_preserved_capabilities(
-                    rec.preserved_fields, baseline
-                ),
             )
         )
     return tuple(views)
+
+
+# ---------------------------------------------------------------------------
+# Budget Fit comparison surface -- "shared context once, differences by
+# option". Everything below is presentation logic over data the engine
+# already returns (FieldChange, preserved_fields, capability_score, ...);
+# no new scoring, ranking, or capability computation is introduced.
+# ---------------------------------------------------------------------------
+
+#: The symbol shown in a trade-off cell for an option that did not change
+#: that particular dimension.
+BUDGET_FIT_NO_CHANGE = "—"
+
+
+def format_budget_fit_headroom(headroom: float) -> str:
+    """"At budget" once headroom rounds to $0, otherwise "$X under
+    budget" -- final price and headroom are the primary budget metrics;
+    budget_utilization stays available on the model but is not the
+    headline figure here (see BudgetFitRecommendation.budget_utilization)."""
+    rounded = round(headroom)
+    if rounded <= 0:
+        return "At budget"
+    return f"{format_money(rounded)} under budget"
+
+
+def budget_fit_tradeoff_fields(
+    recommendations: tuple[BudgetFitRecommendation, ...],
+) -> tuple[BudgetFitField, ...]:
+    """Every field that changed in at least one displayed recommendation,
+    in engine field order -- the row labels of the trade-off comparison.
+
+    Built from each recommendation's own `changed_fields` (already in a
+    stable, consistent order -- see optimizer._ALL_FIELDS), never
+    rediscovered from widget state.
+    """
+    fields: list[BudgetFitField] = []
+    seen: set[BudgetFitField] = set()
+    for rec in recommendations:
+        for change in rec.changed_fields:
+            if change.field not in seen:
+                seen.add(change.field)
+                fields.append(change.field)
+    return tuple(fields)
+
+
+def budget_fit_tradeoff_cell(recommendation: BudgetFitRecommendation, field: BudgetFitField) -> str:
+    """"baseline → candidate" for one recommendation/field cell, or the
+    no-change symbol if this particular recommendation preserved that
+    field (even though another displayed recommendation changed it)."""
+    for change in recommendation.changed_fields:
+        if change.field is field:
+            return f"{change.baseline_value} → {change.candidate_value}"
+    return BUDGET_FIT_NO_CHANGE
+
+
+def budget_fit_shared_preserved_capabilities(
+    recommendations: tuple[BudgetFitRecommendation, ...], baseline: ConfigurationSnapshot
+) -> tuple[str, ...]:
+    """Baseline capabilities preserved by EVERY displayed recommendation --
+    the intersection of each recommendation's own `preserved_fields`, so a
+    field identical across all options is stated once instead of repeated
+    in every column. A field preserved by some but not all recommendations
+    belongs in the trade-off rows instead (mutually exclusive by
+    construction: a field is either changed or preserved for a given
+    recommendation, never both).
+    """
+    if not recommendations:
+        return ()
+    common_fields = set(recommendations[0].preserved_fields)
+    for rec in recommendations[1:]:
+        common_fields &= set(rec.preserved_fields)
+    return describe_preserved_capabilities(tuple(common_fields), baseline)
+
+
+def budget_fit_recommendation_rationale(recommendation: BudgetFitRecommendation) -> str:
+    """A short, factual explanation for the top-ranked recommendation --
+    never a new scoring algorithm.
+
+    "Highest capability preservation" is safe to state unconditionally
+    because capability_score is _rank_key's primary, dominant sort
+    criterion (optimizer._rank_key): the top-ranked recommendation's
+    capability_score is guaranteed to be at least as high as every other
+    displayed recommendation's. The change count is read directly off
+    this recommendation, not compared to the others.
+    """
+    change_word = "change" if recommendation.change_count == 1 else "changes"
+    return (
+        f"Highest capability preservation • {recommendation.change_count} "
+        f"{change_word} from current quote"
+    )
