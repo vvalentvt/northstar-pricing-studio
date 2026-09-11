@@ -7,15 +7,18 @@ from typing import Protocol
 import streamlit as st
 
 from app_state import (
+    BUDGET_FIT_FIELD_LABELS,
     WORKFLOW_STEP_LABELS,
     WORKFLOW_STEP_ORDER,
+    BudgetFitRecommendationView,
+    BudgetFitResult,
     ComparisonOption,
     ReviewPricingState,
     ScenarioComparison,
     WorkflowStep,
     format_money,
 )
-from quotes import Scenario
+from quotes import ConfigurationSnapshot, Scenario
 
 _STATUS_COLORS: dict[str, str] = {
     "DRAFT": "gray",
@@ -277,3 +280,94 @@ def render_selected_scenario_summary(
         for change in changes:
             st.write(f"• {change}")
     st.caption("Selecting an alternative does not change the committed quote.")
+
+
+def render_budget_fit_baseline_summary(
+    configuration: ConfigurationSnapshot, current_price: float
+) -> None:
+    """The compact "what we are trying to preserve" card -- never visually
+    competes with the Budget Fit form; a plain subheader + metric + the
+    same configuration bullets used elsewhere."""
+    st.subheader("Current Quote")
+    st.metric("Current final price", format_money(current_price))
+    render_configuration_bullets(configuration)
+
+
+def render_budget_fit_results_header(result: BudgetFitResult) -> None:
+    st.subheader("Budget Fit Recommendations")
+    st.caption(f"Target budget: {format_money(result.target_budget)}")
+    st.caption(f"Current quote: {format_money(result.baseline_price)}")
+    count = result.feasible_candidate_count
+    st.caption(f"{count} valid configuration{'s' if count != 1 else ''} found")
+    st.write(
+        "Recommended options preserve as much of the current solution as "
+        "possible while staying within budget."
+    )
+
+
+def render_budget_fit_baseline_fits(result: BudgetFitResult) -> None:
+    """The customer's budget already covers the committed quote -- shown as
+    a clear, positive outcome, never as though Budget Fit found a
+    meaningful alternative worth downgrading to."""
+    st.info("Current quote already fits the customer's budget.")
+    c1, c2 = st.columns(2)
+    c1.metric("Current price", format_money(result.baseline_price))
+    c2.metric("Target budget", format_money(result.target_budget))
+    st.caption("No configuration reduction is required.")
+
+
+def render_budget_fit_no_fit(result: BudgetFitResult) -> None:
+    """A no-fit search is a valid product outcome, not an application
+    failure -- amber/neutral treatment, never the red reserved for actual
+    blocking validation errors, and no fabricated "minimum possible
+    price" or claim about which specific requirement is blocking."""
+    st.warning("No valid configuration fits this budget with the current requirements.")
+    st.caption(f"Target budget: {format_money(result.target_budget)}")
+    st.write("Try:")
+    st.write("- increasing the available budget")
+    st.write("- relaxing one or more must-keep requirements")
+    st.write("- lowering the minimum user requirement")
+
+
+def render_budget_fit_recommendation(view: BudgetFitRecommendationView, *, rank: int) -> None:
+    """One ranked, explainable Budget Fit recommendation card.
+
+    Pure presentation over an already-built BudgetFitRecommendationView --
+    every figure here (price, capability preservation, budget utilization,
+    changed/preserved fields) is read directly from the Phase 4A engine's
+    own BudgetFitRecommendation; nothing is recalculated or reranked.
+    Rank 1 gets blue/neutral emphasis, never green -- green is reserved for
+    "within pricing authority" workflow status, not ranking position.
+    """
+    rec = view.recommendation
+    with st.container(border=True):
+        if rank == 1:
+            st.markdown(":blue[**RECOMMENDED**]")
+        else:
+            st.caption(f"Option {rank}")
+
+        st.markdown(f"### {format_money(rec.pricing_snapshot.final_price)}")
+        delta = view.price_delta_vs_current
+        if delta < 0:
+            st.caption(f"{format_money(-delta)} less than current quote")
+        elif delta > 0:
+            st.caption(f"{format_money(delta)} more than current quote")
+        else:
+            st.caption("Same as current quote")
+        st.caption(f"{format_money(view.budget_headroom)} under customer budget")
+
+        st.write(f"**{rec.capability_score:.1%}** of requested capability preserved")
+        st.write(f"**{rec.budget_utilization:.1%}** of available budget used")
+
+        render_status_badge("NEEDS APPROVAL" if rec.pricing_snapshot.approval_required else "PRICED")
+
+        if rec.changed_fields:
+            st.write("**Changes from current quote:**")
+            for change in rec.changed_fields:
+                label = BUDGET_FIT_FIELD_LABELS.get(change.field, change.field.value)
+                st.write(f"• {label}: {change.baseline_value} → {change.candidate_value}")
+
+        if view.preserved_capabilities:
+            st.write("**Preserved:**")
+            for item in view.preserved_capabilities:
+                st.write(f"• {item}")

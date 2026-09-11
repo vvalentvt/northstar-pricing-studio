@@ -7,9 +7,12 @@ for path in (ROOT / "src", ROOT / "app"):
         sys.path.insert(0, str(path))
 
 import streamlit as st
+from pydantic import ValidationError
 
 from app_session import (
+    clear_budget_fit_state,
     clear_scenario_exploration_state,
+    get_budget_fit_state,
     get_current_quote,
     get_deal_context,
     get_pricing_state,
@@ -19,11 +22,14 @@ from app_session import (
     init_session_state,
     is_comparing_scenarios,
     is_exploring_alternatives,
+    is_fitting_budget,
     load_pricing_rules,
+    set_budget_fit_state,
     set_comparing_scenarios,
     set_current_quote,
     set_deal_context,
     set_exploring_alternatives,
+    set_fitting_budget,
     set_pricing_state,
     set_scenario_draft_pricing_state,
     set_scenario_workspace,
@@ -31,16 +37,22 @@ from app_session import (
     start_new_quote_workflow,
 )
 from app_state import (
+    BUDGET_FIT_LOCKABLE_FIELDS,
     DEAL_TYPE_LABELS,
     MAX_COMPARISON_ALTERNATIVES,
+    BudgetFitField,
     CommitError,
     ConfigurationInput,
     DealContext,
     PricingState,
     ScenarioError,
     WorkflowStep,
+    build_budget_fit_constraints,
+    build_recommendation_views,
     build_review_pricing,
     build_scenario_comparison,
+    budget_fit_inputs_changed,
+    budget_fit_version_is_stale,
     calculate_pricing,
     commit_quote,
     configuration_input_from_snapshot,
@@ -51,11 +63,17 @@ from app_state import (
     is_stale,
     promote_selected_scenario,
     resolve_quote_version,
+    run_budget_fit,
     selected_option_changes,
     validate_deal_context,
 )
 from components import (
     render_approval_callout,
+    render_budget_fit_baseline_fits,
+    render_budget_fit_baseline_summary,
+    render_budget_fit_no_fit,
+    render_budget_fit_recommendation,
+    render_budget_fit_results_header,
     render_configuration_bullets,
     render_configuration_summary,
     render_price_bridge,
@@ -321,6 +339,10 @@ def render_review_pricing(rules: dict) -> None:
             render_scenario_workspace(quote, rules)
         return
 
+    if is_fitting_budget():
+        render_budget_fit(quote, rules)
+        return
+
     review = build_review_pricing(quote)
     deal_context = get_deal_context()
 
@@ -358,7 +380,7 @@ def render_review_pricing(rules: dict) -> None:
     render_rule_metadata(review)
 
     st.divider()
-    action_col1, action_col2, action_col3 = st.columns(3)
+    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
     with action_col1:
         edit_label = "Revise Configuration" if review.approval_required else "Edit Configuration"
         if st.button(edit_label):
@@ -376,6 +398,12 @@ def render_review_pricing(rules: dict) -> None:
             set_exploring_alternatives(True)
             st.rerun()
     with action_col3:
+        # A second, distinct negotiation branch off Review Pricing -- not a
+        # step toward Proposal. See render_budget_fit.
+        if st.button("Fit to Budget"):
+            set_fitting_budget(True)
+            st.rerun()
+    with action_col4:
         if review.proposal_available:
             if st.button("Continue to Proposal →", type="primary"):
                 set_workflow_step(WorkflowStep.PROPOSAL)
@@ -696,6 +724,160 @@ def render_scenario_comparison(quote: Quote, workspace: ScenarioWorkspace) -> No
     st.divider()
     if st.button("← Back to Explore Alternatives"):
         set_comparing_scenarios(False)
+        st.rerun()
+
+
+def render_budget_fit(quote: Quote, rules: dict) -> None:
+    """Fit to Budget: a second negotiation branch off Review Pricing (not a
+    workflow step -- the stepper still shows Review Pricing as active).
+
+    Always anchored to quote.current_version.configuration_snapshot (never
+    a dirty Configure/Scenario draft). The form stays live/editable the
+    entire time; a stored result is only ever shown when it still matches
+    both the current QuoteVersion and the current form inputs -- see
+    budget_fit_version_is_stale / budget_fit_inputs_changed. This screen is
+    read-only: no Select/Promote/Create Revision action exists here (that
+    is Phase 4C's job).
+    """
+    deal_context = get_deal_context()
+    customer_name = deal_context.customer_name if deal_context else quote.customer_name
+    budget_fit_state = get_budget_fit_state()
+
+    st.title("Fit to Budget")
+    st.caption(customer_name)
+    st.caption(f"Quote {quote.quote_id} • Based on pricing version v{quote.current_version.version_number}")
+    render_stepper(WorkflowStep.REVIEW_PRICING)
+    st.write(
+        "Find the strongest version of this quote that fits the customer's "
+        "budget while preserving their required capabilities."
+    )
+
+    if budget_fit_version_is_stale(budget_fit_state, quote):
+        st.warning("This quote has changed since Budget Fit was run.")
+        st.caption(
+            f"These recommendations were based on pricing version "
+            f"v{budget_fit_state.source_version_number}. The current quote is "
+            f"pricing version v{quote.current_version.version_number}."
+        )
+        st.caption("Run Budget Fit again from the current quote.")
+        if st.button("← Back to Review Pricing"):
+            clear_budget_fit_state()
+            st.rerun()
+        return
+
+    baseline = quote.current_version.configuration_snapshot
+    current_price = quote.current_version.pricing_snapshot.final_price
+    form_key = f"{quote.quote_id}_v{quote.current_version.version_number}"
+
+    baseline_col, form_col = st.columns([1, 2])
+
+    with baseline_col:
+        render_budget_fit_baseline_summary(baseline, current_price)
+
+    with form_col:
+        st.subheader("Customer target budget")
+        target_budget = st.number_input(
+            "Customer target budget",
+            min_value=1.0,
+            value=float(current_price),
+            step=1000.0,
+            key=f"budget_fit_target_{form_key}",
+        )
+        st.caption(f"Enter the customer's available budget. ({format_money(target_budget)})")
+
+        st.subheader("Customer requirements")
+        st.caption(
+            "Budget Fit will try to preserve the current quote automatically. "
+            "Mark only the requirements the customer says cannot change."
+        )
+
+        st.markdown("**Must keep exactly**")
+        lock_labels = {
+            BudgetFitField.TIER: f"Tier — {baseline.tier.title()}",
+            BudgetFitField.COVERAGE: f"Coverage — {baseline.coverage.replace('_', ' ').title()}",
+            BudgetFitField.HISTORY_YEARS: (
+                f"Historical depth — {baseline.history_years} "
+                f"year{'s' if baseline.history_years != 1 else ''}"
+            ),
+            BudgetFitField.CONTRACT_MONTHS: f"Contract term — {baseline.contract_months} months",
+            BudgetFitField.RENEWAL: f"Renewal selection — {'Yes' if baseline.renewal else 'No'}",
+        }
+        lock_values: dict[BudgetFitField, bool] = {}
+        for field in BUDGET_FIT_LOCKABLE_FIELDS:
+            lock_values[field] = st.checkbox(
+                lock_labels[field], key=f"budget_fit_lock_{field.value}_{form_key}"
+            )
+
+        st.markdown("**Minimum users**")
+        require_minimum_users = st.checkbox(
+            "Set minimum user requirement", key=f"budget_fit_require_min_users_{form_key}"
+        )
+        minimum_users: int | None = None
+        if require_minimum_users:
+            minimum_users = int(
+                st.number_input(
+                    "Minimum users",
+                    min_value=1,
+                    max_value=max(1, baseline.users),
+                    value=1,
+                    step=1,
+                    key=f"budget_fit_min_users_{form_key}",
+                )
+            )
+        st.caption(
+            "Budget Fit will still prefer preserving the current user count "
+            "even when the hard minimum is lower."
+        )
+
+        st.markdown("**Required services**")
+        required_premium_support = st.checkbox(
+            "Premium support is required", key=f"budget_fit_require_premium_{form_key}"
+        )
+        required_implementation_services = st.checkbox(
+            "Implementation services are required", key=f"budget_fit_require_impl_{form_key}"
+        )
+
+        constraints = build_budget_fit_constraints(
+            lock_tier=lock_values[BudgetFitField.TIER],
+            lock_coverage=lock_values[BudgetFitField.COVERAGE],
+            lock_history_years=lock_values[BudgetFitField.HISTORY_YEARS],
+            lock_contract_months=lock_values[BudgetFitField.CONTRACT_MONTHS],
+            lock_renewal=lock_values[BudgetFitField.RENEWAL],
+            minimum_users=minimum_users,
+            required_premium_support=required_premium_support,
+            required_implementation_services=required_implementation_services,
+        )
+
+        find_clicked = st.button("Find Budget Fit", type="primary")
+
+    if find_clicked:
+        try:
+            with st.spinner("Finding the strongest configurations within budget..."):
+                budget_fit_state = run_budget_fit(quote, float(target_budget), constraints, rules)
+        except ValidationError:
+            st.error("Enter a valid target budget greater than $0.")
+        else:
+            set_budget_fit_state(budget_fit_state)
+            st.rerun()
+
+    st.divider()
+    inputs_stale = budget_fit_inputs_changed(budget_fit_state, float(target_budget), constraints)
+    if budget_fit_state is None:
+        pass
+    elif inputs_stale:
+        st.info("Inputs changed — run Budget Fit again to update recommendations.")
+    elif not budget_fit_state.result.recommendations:
+        render_budget_fit_no_fit(budget_fit_state.result)
+    elif budget_fit_state.result.recommendations[0].is_baseline:
+        render_budget_fit_baseline_fits(budget_fit_state.result)
+    else:
+        render_budget_fit_results_header(budget_fit_state.result)
+        for rank, view in enumerate(build_recommendation_views(budget_fit_state), start=1):
+            render_budget_fit_recommendation(view, rank=rank)
+
+    st.divider()
+    if st.button("← Back to Review Pricing", key=f"budget_fit_back_{form_key}"):
+        set_fitting_budget(False)
         st.rerun()
 
 
