@@ -10,7 +10,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from app_state import DealContext, PricingState, WorkflowStep
+from app_state import BudgetFitViewState, DealContext, PricingState, WorkflowStep
 from pricing_engine import load_rules
 from quotes import Quote, ScenarioWorkspace
 
@@ -26,6 +26,8 @@ _DEFAULTS: dict[str, object] = {
     "scenario_draft_pricing_state": None,
     "exploring_alternatives": False,
     "comparing_scenarios": False,
+    "fitting_budget": False,
+    "budget_fit_state": None,
 }
 
 
@@ -53,12 +55,22 @@ def clear_scenario_exploration_state() -> None:
     st.session_state["comparing_scenarios"] = False
 
 
+def clear_budget_fit_state() -> None:
+    """Discards the Budget Fit subview flag and any stored result -- used
+    both when starting a new quote (a prior quote's Budget Fit run must
+    never leak in) and when a quote has advanced past the version a
+    stored result was based on."""
+    st.session_state["fitting_budget"] = False
+    st.session_state["budget_fit_state"] = None
+
+
 def start_new_quote_workflow() -> None:
     st.session_state["workflow_step"] = WorkflowStep.DEAL_SETUP
     st.session_state["deal_context"] = None
     st.session_state["pricing_state"] = None
     st.session_state["current_quote"] = None
     clear_scenario_exploration_state()
+    clear_budget_fit_state()
 
 
 def get_workflow_step() -> WorkflowStep | None:
@@ -123,3 +135,19 @@ def is_comparing_scenarios() -> bool:
 
 def set_comparing_scenarios(value: bool) -> None:
     st.session_state["comparing_scenarios"] = value
+
+
+def is_fitting_budget() -> bool:
+    return bool(st.session_state.get("fitting_budget"))
+
+
+def set_fitting_budget(value: bool) -> None:
+    st.session_state["fitting_budget"] = value
+
+
+def get_budget_fit_state() -> BudgetFitViewState | None:
+    return st.session_state.get("budget_fit_state")
+
+
+def set_budget_fit_state(view_state: BudgetFitViewState | None) -> None:
+    st.session_state["budget_fit_state"] = view_state
