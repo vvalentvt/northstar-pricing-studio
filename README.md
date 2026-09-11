@@ -42,20 +42,19 @@ A credible pricing product should help a commercial user answer:
 - Deterministic Python pricing engine
 - Itemized pricing adjustments and explanations
 - Discount-policy evaluation
-- Streamlit UI shell
+- Streamlit UI shell (Deal Setup, Configure, Review Pricing)
+- Immutable quote/version management and versioned pricing snapshots
+- Explainable quote review and approval-state modeling
+- Scenario exploration, comparison, and promotion into quote history
 - Automated tests
 - GitHub Actions CI
 
 ### Designed / planned workflow
 
-- Quote and quote-version management
-- Explainable quote review
-- Scenario creation and comparison
 - **Budget Fit Optimization** for budget-constrained negotiations
-- Approval-state handling
-- Versioned pricing snapshots
 - Proposal assembly from an approved pricing snapshot
-- Quote history and audit trail
+- Persistence beyond the current session
+- Quote history and audit trail surfaced in the UI
 
 The repository intentionally distinguishes working functionality from designed future capability.
 
@@ -165,6 +164,34 @@ The pricing engine remains deterministic and independent of UI, persistence, opt
 | Proposal traceable to a specific approved quote version | 100% |
 | Automated coverage of core pricing rules | >= 90% |
 
+## How Northstar Evolved
+
+Northstar was built in the order a real pricing system's risk actually resolves: get the domain model right before the negotiation features that depend on it, and get governance right before optimization sits on top of it.
+
+```text
+Product Design
+    |
+    v
+Pricing Domain
+    |
+    v
+Quote Versioning
+    |
+    v
+Pricing Workflow
+    |
+    v
+Explainability & Governance
+    |
+    v
+Negotiation Scenarios
+    |
+    v
+Budget Fit Optimization
+```
+
+Each stage's problem, decision, and outcome — grounded in the repository's actual commit history, not a reconstructed narrative — is in [`docs/DEVELOPMENT_HISTORY.md`](docs/DEVELOPMENT_HISTORY.md). The architectural decisions with lasting consequences are recorded separately in [`docs/adr/`](docs/adr/). How work is branched, committed, and reviewed going forward is in [`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md).
+
 ## Documentation
 
 - [`docs/PRD.md`](docs/PRD.md) — product requirements and acceptance criteria
@@ -174,6 +201,8 @@ The pricing engine remains deterministic and independent of UI, persistence, opt
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — target solution architecture and domain model
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — staged implementation roadmap
 - [`docs/adr/`](docs/adr/) — architecture decision records
+- [`docs/DEVELOPMENT_HISTORY.md`](docs/DEVELOPMENT_HISTORY.md) — how Northstar actually evolved, milestone by milestone
+- [`docs/DEVELOPMENT_WORKFLOW.md`](docs/DEVELOPMENT_WORKFLOW.md) — branch, commit, and PR workflow for future work
 
 ## Local setup
 
