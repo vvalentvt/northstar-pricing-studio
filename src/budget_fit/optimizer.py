@@ -121,9 +121,7 @@ def find_budget_fit(request: BudgetFitRequest, rules: dict) -> BudgetFitResult:
         # shortcut: a baseline that fits on price but violates a locked
         # field, minimum, or required service must still go through the
         # normal search below rather than being returned unchanged.
-        return _baseline_fits_result(
-            request, baseline, baseline_result, rules, users_lower, users_upper
-        )
+        return _baseline_fits_result(request, baseline, baseline_result)
 
     domains = (
         _tier_domain(rules, baseline, constraints),
@@ -167,10 +165,7 @@ def find_budget_fit(request: BudgetFitRequest, rules: dict) -> BudgetFitResult:
             continue
 
         evaluations.append(
-            _evaluate_candidate(
-                rules, baseline, configuration, result, request.target_budget,
-                users_lower, users_upper,
-            )
+            _evaluate_candidate(baseline, configuration, result, request.target_budget)
         )
 
     feasible_count = len(evaluations)
@@ -227,19 +222,16 @@ def _baseline_fits_result(
     request: BudgetFitRequest,
     baseline: ConfigurationSnapshot,
     baseline_result: QuoteResult,
-    rules: dict,
-    users_lower: int,
-    users_upper: int,
 ) -> BudgetFitResult:
     """The committed baseline already fits -- return it unchanged as the
     sole recommendation rather than letting the general search possibly
     prefer some other, equally-valid-but-different configuration. Budget
     Fit must not downgrade (or upgrade) a configuration that was never
-    the problem."""
-    evaluation = _evaluate_candidate(
-        rules, baseline, baseline, baseline_result, request.target_budget,
-        users_lower, users_upper,
-    )
+    the problem. Evaluated against itself, every dimension is a perfect
+    self-ratio, so this recommendation's capability score is always
+    exactly 1.0 -- all of the baseline's own capability is trivially
+    preserved by the baseline."""
+    evaluation = _evaluate_candidate(baseline, baseline, baseline_result, request.target_budget)
     recommendation = _to_recommendation(evaluation, rank=1).model_copy(
         update={"is_baseline": True}
     )
@@ -330,26 +322,41 @@ def _build_configuration(baseline: ConfigurationSnapshot, values: tuple) -> Conf
 
 
 # ---------------------------------------------------------------------------
-# Capability scoring -- each dimension normalized to [0, 1], then averaged.
+# Capability scoring -- each dimension expressed as a *preservation* ratio
+# against the baseline, then averaged. This answers "how much of the
+# customer's committed/requested capability does this candidate preserve?",
+# not "how capable is this candidate in absolute catalog terms?".
 #
-# Pricing and product capability are deliberately separate concepts here.
-# Pricing rules answer "what does this configuration cost?"; capability
-# scoring answers "how much product/service capability does this
-# configuration provide?" A dimension's capability score must never be
-# derived from its price contribution -- the two can coincidentally
-# correlate in this fictional catalog, but one must not be inferred from
-# the other, or "costs more" quietly becomes "is more capable".
+# dimension_preservation = min(candidate_capability / baseline_capability, 1.0)
 #
-# - users, historical depth: intrinsically numeric -- ordered by their own
-#   value (more users / more years = more capability), not by what
-#   Northstar happens to charge for them.
-# - required boolean capabilities: present (True) contributes capability,
-#   absent (False) does not.
+# Capping at 1.0 is deliberate: a candidate that exceeds the baseline in one
+# dimension (e.g. more history years) earns no bonus credit there, so it can
+# never use that surplus to outrank a candidate that fully preserves the
+# baseline across every dimension instead. Candidates are still free to
+# exceed baseline in the search itself -- they simply are not scored higher
+# for doing so.
+#
+# Pricing and product capability remain separate concepts. Pricing rules
+# answer "what does this configuration cost?"; capability scoring answers
+# "how much of the requested product/service capability survives?" A
+# dimension's score must never be derived from its price contribution.
+#
+# - users, historical depth: intrinsically numeric -- the ratio is taken
+#   directly against the baseline's own value, not against the full catalog
+#   range and not against what Northstar happens to charge.
+# - required boolean capabilities: preserved (still present, or never
+#   requested) scores 1.0; dropped (baseline had it, candidate does not)
+#   scores 0.0. Adding a capability the baseline never requested is not
+#   penalized, but also earns no bonus above 1.0.
 # - subscription tier, geographic coverage: categorical, with no numeric
-#   value to order by. TIER_CAPABILITY_ORDER / COVERAGE_CAPABILITY_ORDER
+#   value to ratio directly. TIER_CAPABILITY_ORDER / COVERAGE_CAPABILITY_ORDER
 #   below are an explicit, fictional, small, documented Budget Fit
 #   capability *profile* -- product-capability semantics we define on
-#   purpose, independent of and never read from the pricing rules.
+#   purpose, independent of and never read from the pricing rules. Each
+#   option's position in that ordering is converted to a 1-indexed
+#   "capability level" (never 0-indexed) specifically so a baseline already
+#   sitting at the catalog floor -- level 1 -- has a well-defined,
+#   non-zero denominator instead of causing a division by zero.
 # ---------------------------------------------------------------------------
 
 #: Fictional Budget Fit product-capability ordering, least to most capable.
@@ -361,45 +368,54 @@ TIER_CAPABILITY_ORDER: tuple[str, ...] = ("core", "growth", "enterprise")
 COVERAGE_CAPABILITY_ORDER: tuple[str, ...] = ("national", "north_america", "global")
 
 
-def _normalized(value: float, low: float, high: float) -> float:
-    if high == low:
+def _preservation_ratio(candidate_value: float, baseline_value: float) -> float:
+    """min(candidate/baseline, 1.0) -- the shared preservation formula for
+    every dimension whose capability is expressed as a positive magnitude
+    (a 1-indexed ordinal level, a user count, a year count)."""
+    if baseline_value <= 0:
         return 1.0
-    return (value - low) / (high - low)
+    return min(candidate_value / baseline_value, 1.0)
 
 
-def _ordinal_score(value: str, order: tuple[str, ...]) -> float:
+def _ordinal_level(value: str, order: tuple[str, ...]) -> int:
+    """1-indexed position in a capability ordering -- 1-indexed (not 0) so
+    the lowest catalog option is never a zero denominator in
+    `_preservation_ratio`."""
     if value not in order:
         raise ValueError(
             f"{value!r} is not part of the Budget Fit capability ordering {order}; "
             "update the ordering to match the current pricing rules' option set."
         )
-    if len(order) <= 1:
+    return order.index(value) + 1
+
+
+def _tier_preservation(tier: str, baseline_tier: str) -> float:
+    return _preservation_ratio(
+        _ordinal_level(tier, TIER_CAPABILITY_ORDER),
+        _ordinal_level(baseline_tier, TIER_CAPABILITY_ORDER),
+    )
+
+
+def _coverage_preservation(coverage: str, baseline_coverage: str) -> float:
+    return _preservation_ratio(
+        _ordinal_level(coverage, COVERAGE_CAPABILITY_ORDER),
+        _ordinal_level(baseline_coverage, COVERAGE_CAPABILITY_ORDER),
+    )
+
+
+def _history_years_preservation(history_years: int, baseline_history_years: int) -> float:
+    return _preservation_ratio(float(history_years), float(baseline_history_years))
+
+
+def _users_preservation(users: int, baseline_users: int) -> float:
+    return _preservation_ratio(float(users), float(baseline_users))
+
+
+def _boolean_preservation(value: bool, baseline_value: bool) -> float:
+    # Nothing was requested (baseline False): any candidate value fully
+    # preserves that (non-)requirement, full credit either way.
+    if not baseline_value:
         return 1.0
-    return order.index(value) / (len(order) - 1)
-
-
-def _tier_score(tier: str) -> float:
-    return _ordinal_score(tier, TIER_CAPABILITY_ORDER)
-
-
-def _coverage_score(coverage: str) -> float:
-    return _ordinal_score(coverage, COVERAGE_CAPABILITY_ORDER)
-
-
-def _history_years_score(rules: dict, history_years: int) -> float:
-    # The valid *set* of years is still legitimately rule-derived (so a
-    # future rule change to the available depths is picked up
-    # automatically), but the ordering itself is the intrinsic year value,
-    # never the price the rules attach to it.
-    years = sorted(int(year) for year in rules["history_years"].keys())
-    return _normalized(float(history_years), float(years[0]), float(years[-1]))
-
-
-def _users_score(users: int, users_lower: int, users_upper: int) -> float:
-    return _normalized(float(users), float(users_lower), float(users_upper))
-
-
-def _boolean_score(value: bool) -> float:
     return 1.0 if value else 0.0
 
 
@@ -418,21 +434,23 @@ def _format_value(field: BudgetFitField, value: object) -> str:
 
 
 def _evaluate_candidate(
-    rules: dict,
     baseline: ConfigurationSnapshot,
     configuration: ConfigurationSnapshot,
     result: QuoteResult,
     target_budget: float,
-    users_lower: int,
-    users_upper: int,
 ) -> _CandidateEvaluation:
+    # capability_score / CapabilityComponent.score keep their existing
+    # public field names to avoid API churn, but as of this pass they hold
+    # a *preservation* score (see the capability scoring section above),
+    # not an absolute one: 1.0 means all of the baseline's capability on
+    # that dimension survived in this candidate, 0.0 means none of it did.
     breakdown = (
-        CapabilityComponent(field=BudgetFitField.TIER, score=_tier_score(configuration.tier)),
-        CapabilityComponent(field=BudgetFitField.USERS, score=_users_score(configuration.users, users_lower, users_upper)),
-        CapabilityComponent(field=BudgetFitField.COVERAGE, score=_coverage_score(configuration.coverage)),
-        CapabilityComponent(field=BudgetFitField.HISTORY_YEARS, score=_history_years_score(rules, configuration.history_years)),
-        CapabilityComponent(field=BudgetFitField.PREMIUM_SUPPORT, score=_boolean_score(configuration.premium_support)),
-        CapabilityComponent(field=BudgetFitField.IMPLEMENTATION_SERVICES, score=_boolean_score(configuration.implementation_services)),
+        CapabilityComponent(field=BudgetFitField.TIER, score=_tier_preservation(configuration.tier, baseline.tier)),
+        CapabilityComponent(field=BudgetFitField.USERS, score=_users_preservation(configuration.users, baseline.users)),
+        CapabilityComponent(field=BudgetFitField.COVERAGE, score=_coverage_preservation(configuration.coverage, baseline.coverage)),
+        CapabilityComponent(field=BudgetFitField.HISTORY_YEARS, score=_history_years_preservation(configuration.history_years, baseline.history_years)),
+        CapabilityComponent(field=BudgetFitField.PREMIUM_SUPPORT, score=_boolean_preservation(configuration.premium_support, baseline.premium_support)),
+        CapabilityComponent(field=BudgetFitField.IMPLEMENTATION_SERVICES, score=_boolean_preservation(configuration.implementation_services, baseline.implementation_services)),
     )
     capability_score = sum(component.score for component in breakdown) / len(breakdown)
 

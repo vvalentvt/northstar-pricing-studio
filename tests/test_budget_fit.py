@@ -432,63 +432,97 @@ def test_budget_fit_integration_realistic_negotiation_scenario():
     )
 
 
-def test_tier_capability_ordering_does_not_depend_on_tier_price():
-    core_score = budget_fit_optimizer._tier_score("core")
-    growth_score = budget_fit_optimizer._tier_score("growth")
-    enterprise_score = budget_fit_optimizer._tier_score("enterprise")
-    assert core_score < growth_score < enterprise_score
-    assert TIER_CAPABILITY_ORDER == ("core", "growth", "enterprise")
+def test_preservation_matching_baseline_scores_full_credit():
+    # Property 1: a candidate that matches the baseline on a dimension
+    # always scores exactly 1.0 on that dimension, for every scored type.
+    assert budget_fit_optimizer._tier_preservation("enterprise", "enterprise") == 1.0
+    assert budget_fit_optimizer._coverage_preservation("global", "global") == 1.0
+    assert budget_fit_optimizer._history_years_preservation(3, 3) == 1.0
+    assert budget_fit_optimizer._users_preservation(10, 10) == 1.0
+    assert budget_fit_optimizer._boolean_preservation(True, True) == 1.0
+    assert budget_fit_optimizer._boolean_preservation(False, False) == 1.0
 
-    # _tier_score doesn't even accept `rules` -- there is no pricing input
-    # it could read from, by construction. Confirm the scores are the same
-    # values regardless of what the pricing rules currently say tiers cost.
+
+def test_preservation_below_baseline_is_proportional():
+    # Property 2: falling short of the baseline scores strictly less than
+    # 1.0, proportionally to how far short the candidate falls.
+    assert budget_fit_optimizer._tier_preservation("core", "enterprise") == pytest.approx(1 / 3)
+    assert budget_fit_optimizer._tier_preservation("growth", "enterprise") == pytest.approx(2 / 3)
+    assert budget_fit_optimizer._coverage_preservation("national", "global") == pytest.approx(1 / 3)
+    assert budget_fit_optimizer._history_years_preservation(1, 3) == pytest.approx(1 / 3)
+    assert budget_fit_optimizer._users_preservation(8, 10) == pytest.approx(0.8)
+    assert budget_fit_optimizer._boolean_preservation(False, True) == 0.0
+
+
+def test_preservation_above_baseline_is_capped_not_bonused():
+    # Property 3: exceeding the baseline earns no bonus above 1.0 -- this
+    # is the entire point of the preservation pass.
+    assert budget_fit_optimizer._tier_preservation("enterprise", "core") == 1.0
+    assert budget_fit_optimizer._coverage_preservation("global", "national") == 1.0
+    assert budget_fit_optimizer._history_years_preservation(5, 3) == 1.0
+    assert budget_fit_optimizer._users_preservation(12, 10) == 1.0
+
+
+def test_history_years_preservation_does_not_reward_exceeding_baseline():
+    # Property 4 (worked example from the spec): baseline=3 years --
+    # 1yr scores 0.333, 3yr scores 1.0, 5yr is capped at 1.0, so a 5-year
+    # candidate must never outscore a 3-year candidate against this
+    # baseline -- both fully preserve the requested depth.
+    assert budget_fit_optimizer._history_years_preservation(1, 3) == pytest.approx(1 / 3)
+    three_year_score = budget_fit_optimizer._history_years_preservation(3, 3)
+    five_year_score = budget_fit_optimizer._history_years_preservation(5, 3)
+    assert three_year_score == 1.0
+    assert five_year_score == three_year_score
+
+
+def test_users_preservation_penalizes_fewer_users_than_baseline():
+    # Property 5 (worked example from the spec): baseline=10 users --
+    # 8 users scores lower (0.8) than 10 users (1.0).
+    eight_users_score = budget_fit_optimizer._users_preservation(8, 10)
+    ten_users_score = budget_fit_optimizer._users_preservation(10, 10)
+    assert eight_users_score == pytest.approx(0.8)
+    assert ten_users_score == 1.0
+    assert eight_users_score < ten_users_score
+
+
+def test_boolean_preservation_adding_unrequested_capability_does_not_exceed_one():
+    # Property 6: baseline never requested the service (False) -- adding
+    # it (True) is not penalized, but also does not earn a bonus above
+    # the same full (1.0) credit an unrequested-and-still-absent service
+    # already receives.
+    not_requested_and_still_absent = budget_fit_optimizer._boolean_preservation(False, False)
+    not_requested_but_added = budget_fit_optimizer._boolean_preservation(True, False)
+    assert not_requested_and_still_absent == 1.0
+    assert not_requested_but_added == 1.0
+
+
+def test_tier_capability_ordering_does_not_depend_on_tier_price():
+    # Property 7: capability preservation stays price-independent.
+    # _tier_preservation doesn't even accept `rules` -- there is no
+    # pricing input it could read from, by construction.
+    assert TIER_CAPABILITY_ORDER == ("core", "growth", "enterprise")
     inverted_rules = copy.deepcopy(RULES)
     inverted_rules["tiers"]["core"]["base_price"] = 999_999
     inverted_rules["tiers"]["enterprise"]["base_price"] = 1
-    assert budget_fit_optimizer._tier_score("core") == core_score
-    assert budget_fit_optimizer._tier_score("enterprise") == enterprise_score
-    assert budget_fit_optimizer._tier_score("core") < budget_fit_optimizer._tier_score("enterprise")
+    assert budget_fit_optimizer._tier_preservation("core", "enterprise") == pytest.approx(1 / 3)
+    assert budget_fit_optimizer._tier_preservation("enterprise", "core") == 1.0
 
 
 def test_coverage_capability_ordering_does_not_depend_on_coverage_price():
-    national_score = budget_fit_optimizer._coverage_score("national")
-    north_america_score = budget_fit_optimizer._coverage_score("north_america")
-    global_score = budget_fit_optimizer._coverage_score("global")
-    assert national_score < north_america_score < global_score
     assert COVERAGE_CAPABILITY_ORDER == ("national", "north_america", "global")
-
     inverted_rules = copy.deepcopy(RULES)
     inverted_rules["coverage"]["national"] = 999_999
     inverted_rules["coverage"]["global"] = 0
-    assert budget_fit_optimizer._coverage_score("national") == national_score
-    assert budget_fit_optimizer._coverage_score("global") == global_score
-    assert budget_fit_optimizer._coverage_score("national") < budget_fit_optimizer._coverage_score("global")
-
-
-def test_history_depth_score_follows_actual_depth_not_price():
-    score_1yr = budget_fit_optimizer._history_years_score(RULES, 1)
-    score_3yr = budget_fit_optimizer._history_years_score(RULES, 3)
-    score_5yr = budget_fit_optimizer._history_years_score(RULES, 5)
-    assert score_1yr < score_3yr < score_5yr
-
-    # Invert the price amounts attached to each depth -- the depth values
-    # themselves (1, 3, 5) are unchanged, so the score ordering must stay
-    # the same even though "1 year" is now the most expensive option.
-    inverted_rules = copy.deepcopy(RULES)
-    inverted_rules["history_years"] = {1: 99_999, 3: 500, 5: 0}
-    assert budget_fit_optimizer._history_years_score(inverted_rules, 1) == score_1yr
-    assert budget_fit_optimizer._history_years_score(inverted_rules, 5) == score_5yr
-    assert (
-        budget_fit_optimizer._history_years_score(inverted_rules, 1)
-        < budget_fit_optimizer._history_years_score(inverted_rules, 5)
-    )
+    assert budget_fit_optimizer._coverage_preservation("national", "global") == pytest.approx(1 / 3)
+    assert budget_fit_optimizer._coverage_preservation("global", "national") == 1.0
 
 
 def test_capability_score_is_unchanged_when_pricing_amounts_change():
-    """The same product configuration evaluated under wildly different
-    prices must produce an identical capability score -- proving
-    capability is independent of dollar price, budget utilization, and
-    (by construction, since it isn't a scored field at all) discount."""
+    """The same product configuration, evaluated against the same
+    baseline, under wildly different prices, must produce an identical
+    capability (preservation) score -- proving capability is independent
+    of dollar price, budget utilization, and (by construction, since it
+    isn't a scored field at all) discount."""
     configuration = _configuration(
         tier="growth", users=8, coverage="north_america", history_years=3,
         premium_support=True, implementation_services=False,
@@ -505,12 +539,10 @@ def test_capability_score_is_unchanged_when_pricing_amounts_change():
     assert inflated_result.final_price != original_result.final_price
 
     original_evaluation = budget_fit_optimizer._evaluate_candidate(
-        RULES, configuration, configuration, original_result,
-        target_budget=1_000_000, users_lower=1, users_upper=configuration.users,
+        configuration, configuration, original_result, target_budget=1_000_000,
     )
     inflated_evaluation = budget_fit_optimizer._evaluate_candidate(
-        inflated_rules, configuration, configuration, inflated_result,
-        target_budget=1_000_000, users_lower=1, users_upper=configuration.users,
+        configuration, configuration, inflated_result, target_budget=1_000_000,
     )
 
     assert inflated_evaluation.capability_score == original_evaluation.capability_score
