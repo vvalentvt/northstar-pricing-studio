@@ -10,12 +10,17 @@ sys.path.insert(0, str(ROOT / "src"))
 from pricing_engine import QuoteRequest, calculate_quote, load_rules
 from quotes import ConfigurationSnapshot
 
+import copy
+
 from budget_fit import (
+    COVERAGE_CAPABILITY_ORDER,
+    TIER_CAPABILITY_ORDER,
     BudgetFitConstraints,
     BudgetFitField,
     BudgetFitRequest,
     find_budget_fit,
 )
+from budget_fit import optimizer as budget_fit_optimizer
 
 RULES = load_rules(ROOT / "config" / "pricing_rules.yaml")
 
@@ -425,3 +430,88 @@ def test_budget_fit_integration_realistic_negotiation_scenario():
         f"feasible={result.feasible_candidate_count} "
         f"recommended={len(result.recommendations)}"
     )
+
+
+def test_tier_capability_ordering_does_not_depend_on_tier_price():
+    core_score = budget_fit_optimizer._tier_score("core")
+    growth_score = budget_fit_optimizer._tier_score("growth")
+    enterprise_score = budget_fit_optimizer._tier_score("enterprise")
+    assert core_score < growth_score < enterprise_score
+    assert TIER_CAPABILITY_ORDER == ("core", "growth", "enterprise")
+
+    # _tier_score doesn't even accept `rules` -- there is no pricing input
+    # it could read from, by construction. Confirm the scores are the same
+    # values regardless of what the pricing rules currently say tiers cost.
+    inverted_rules = copy.deepcopy(RULES)
+    inverted_rules["tiers"]["core"]["base_price"] = 999_999
+    inverted_rules["tiers"]["enterprise"]["base_price"] = 1
+    assert budget_fit_optimizer._tier_score("core") == core_score
+    assert budget_fit_optimizer._tier_score("enterprise") == enterprise_score
+    assert budget_fit_optimizer._tier_score("core") < budget_fit_optimizer._tier_score("enterprise")
+
+
+def test_coverage_capability_ordering_does_not_depend_on_coverage_price():
+    national_score = budget_fit_optimizer._coverage_score("national")
+    north_america_score = budget_fit_optimizer._coverage_score("north_america")
+    global_score = budget_fit_optimizer._coverage_score("global")
+    assert national_score < north_america_score < global_score
+    assert COVERAGE_CAPABILITY_ORDER == ("national", "north_america", "global")
+
+    inverted_rules = copy.deepcopy(RULES)
+    inverted_rules["coverage"]["national"] = 999_999
+    inverted_rules["coverage"]["global"] = 0
+    assert budget_fit_optimizer._coverage_score("national") == national_score
+    assert budget_fit_optimizer._coverage_score("global") == global_score
+    assert budget_fit_optimizer._coverage_score("national") < budget_fit_optimizer._coverage_score("global")
+
+
+def test_history_depth_score_follows_actual_depth_not_price():
+    score_1yr = budget_fit_optimizer._history_years_score(RULES, 1)
+    score_3yr = budget_fit_optimizer._history_years_score(RULES, 3)
+    score_5yr = budget_fit_optimizer._history_years_score(RULES, 5)
+    assert score_1yr < score_3yr < score_5yr
+
+    # Invert the price amounts attached to each depth -- the depth values
+    # themselves (1, 3, 5) are unchanged, so the score ordering must stay
+    # the same even though "1 year" is now the most expensive option.
+    inverted_rules = copy.deepcopy(RULES)
+    inverted_rules["history_years"] = {1: 99_999, 3: 500, 5: 0}
+    assert budget_fit_optimizer._history_years_score(inverted_rules, 1) == score_1yr
+    assert budget_fit_optimizer._history_years_score(inverted_rules, 5) == score_5yr
+    assert (
+        budget_fit_optimizer._history_years_score(inverted_rules, 1)
+        < budget_fit_optimizer._history_years_score(inverted_rules, 5)
+    )
+
+
+def test_capability_score_is_unchanged_when_pricing_amounts_change():
+    """The same product configuration evaluated under wildly different
+    prices must produce an identical capability score -- proving
+    capability is independent of dollar price, budget utilization, and
+    (by construction, since it isn't a scored field at all) discount."""
+    configuration = _configuration(
+        tier="growth", users=8, coverage="north_america", history_years=3,
+        premium_support=True, implementation_services=False,
+    )
+    original_result = calculate_quote(QuoteRequest(**configuration.model_dump()), RULES)
+
+    inflated_rules = copy.deepcopy(RULES)
+    inflated_rules["tiers"]["growth"]["base_price"] *= 5
+    inflated_rules["coverage"]["north_america"] *= 5
+    inflated_rules["history_years"][3] *= 5
+    inflated_rules["premium_support"][True] *= 5
+    inflated_result = calculate_quote(QuoteRequest(**configuration.model_dump()), inflated_rules)
+    # Sanity check: the price genuinely did change, so this is a real test.
+    assert inflated_result.final_price != original_result.final_price
+
+    original_evaluation = budget_fit_optimizer._evaluate_candidate(
+        RULES, configuration, configuration, original_result,
+        target_budget=1_000_000, users_lower=1, users_upper=configuration.users,
+    )
+    inflated_evaluation = budget_fit_optimizer._evaluate_candidate(
+        inflated_rules, configuration, configuration, inflated_result,
+        target_budget=1_000_000, users_lower=1, users_upper=configuration.users,
+    )
+
+    assert inflated_evaluation.capability_score == original_evaluation.capability_score
+    assert inflated_evaluation.capability_breakdown == original_evaluation.capability_breakdown

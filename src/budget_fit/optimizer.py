@@ -37,6 +37,13 @@ v1 constraints, all deliberate:
   from the active pricing rules (`rules["tiers"]`, `rules["coverage"]`,
   ...) so Budget Fit never maintains a second copy of what Northstar
   actually sells.
+* Pricing and product capability are separate concepts. Search-space
+  *domains* (which tiers/coverage options exist) are read from the
+  pricing rules; capability *scoring* (how much product capability a
+  given tier/coverage option represents) never is -- see the capability
+  scoring section below for the explicit, documented profile this uses
+  instead. A configuration's capability score must not change just
+  because the pricing rules change what it costs.
 """
 
 from __future__ import annotations
@@ -323,10 +330,35 @@ def _build_configuration(baseline: ConfigurationSnapshot, values: tuple) -> Conf
 
 
 # ---------------------------------------------------------------------------
-# Capability scoring -- each dimension normalized to [0, 1] against its
-# rule-defined range, then averaged into a single transparent score used
-# for ranking (see _rank_key below).
+# Capability scoring -- each dimension normalized to [0, 1], then averaged.
+#
+# Pricing and product capability are deliberately separate concepts here.
+# Pricing rules answer "what does this configuration cost?"; capability
+# scoring answers "how much product/service capability does this
+# configuration provide?" A dimension's capability score must never be
+# derived from its price contribution -- the two can coincidentally
+# correlate in this fictional catalog, but one must not be inferred from
+# the other, or "costs more" quietly becomes "is more capable".
+#
+# - users, historical depth: intrinsically numeric -- ordered by their own
+#   value (more users / more years = more capability), not by what
+#   Northstar happens to charge for them.
+# - required boolean capabilities: present (True) contributes capability,
+#   absent (False) does not.
+# - subscription tier, geographic coverage: categorical, with no numeric
+#   value to order by. TIER_CAPABILITY_ORDER / COVERAGE_CAPABILITY_ORDER
+#   below are an explicit, fictional, small, documented Budget Fit
+#   capability *profile* -- product-capability semantics we define on
+#   purpose, independent of and never read from the pricing rules.
 # ---------------------------------------------------------------------------
+
+#: Fictional Budget Fit product-capability ordering, least to most capable.
+#: NOT a pricing rule and NOT derived from one -- see comment block above.
+TIER_CAPABILITY_ORDER: tuple[str, ...] = ("core", "growth", "enterprise")
+
+#: Fictional Budget Fit product-capability ordering, least to most capable.
+#: NOT a pricing rule and NOT derived from one -- see comment block above.
+COVERAGE_CAPABILITY_ORDER: tuple[str, ...] = ("national", "north_america", "global")
 
 
 def _normalized(value: float, low: float, high: float) -> float:
@@ -335,19 +367,32 @@ def _normalized(value: float, low: float, high: float) -> float:
     return (value - low) / (high - low)
 
 
-def _tier_score(rules: dict, tier: str) -> float:
-    prices = [option["base_price"] for option in rules["tiers"].values()]
-    return _normalized(float(rules["tiers"][tier]["base_price"]), float(min(prices)), float(max(prices)))
+def _ordinal_score(value: str, order: tuple[str, ...]) -> float:
+    if value not in order:
+        raise ValueError(
+            f"{value!r} is not part of the Budget Fit capability ordering {order}; "
+            "update the ordering to match the current pricing rules' option set."
+        )
+    if len(order) <= 1:
+        return 1.0
+    return order.index(value) / (len(order) - 1)
 
 
-def _coverage_score(rules: dict, coverage: str) -> float:
-    prices = list(rules["coverage"].values())
-    return _normalized(float(rules["coverage"][coverage]), float(min(prices)), float(max(prices)))
+def _tier_score(tier: str) -> float:
+    return _ordinal_score(tier, TIER_CAPABILITY_ORDER)
+
+
+def _coverage_score(coverage: str) -> float:
+    return _ordinal_score(coverage, COVERAGE_CAPABILITY_ORDER)
 
 
 def _history_years_score(rules: dict, history_years: int) -> float:
-    prices = list(rules["history_years"].values())
-    return _normalized(float(rules["history_years"][history_years]), float(min(prices)), float(max(prices)))
+    # The valid *set* of years is still legitimately rule-derived (so a
+    # future rule change to the available depths is picked up
+    # automatically), but the ordering itself is the intrinsic year value,
+    # never the price the rules attach to it.
+    years = sorted(int(year) for year in rules["history_years"].keys())
+    return _normalized(float(history_years), float(years[0]), float(years[-1]))
 
 
 def _users_score(users: int, users_lower: int, users_upper: int) -> float:
@@ -382,9 +427,9 @@ def _evaluate_candidate(
     users_upper: int,
 ) -> _CandidateEvaluation:
     breakdown = (
-        CapabilityComponent(field=BudgetFitField.TIER, score=_tier_score(rules, configuration.tier)),
+        CapabilityComponent(field=BudgetFitField.TIER, score=_tier_score(configuration.tier)),
         CapabilityComponent(field=BudgetFitField.USERS, score=_users_score(configuration.users, users_lower, users_upper)),
-        CapabilityComponent(field=BudgetFitField.COVERAGE, score=_coverage_score(rules, configuration.coverage)),
+        CapabilityComponent(field=BudgetFitField.COVERAGE, score=_coverage_score(configuration.coverage)),
         CapabilityComponent(field=BudgetFitField.HISTORY_YEARS, score=_history_years_score(rules, configuration.history_years)),
         CapabilityComponent(field=BudgetFitField.PREMIUM_SUPPORT, score=_boolean_score(configuration.premium_support)),
         CapabilityComponent(field=BudgetFitField.IMPLEMENTATION_SERVICES, score=_boolean_score(configuration.implementation_services)),
