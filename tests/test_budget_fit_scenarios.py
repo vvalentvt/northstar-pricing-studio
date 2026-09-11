@@ -257,6 +257,106 @@ def test_same_price_different_configuration_is_not_treated_as_duplicate():
     assert budget_fit_recommendation_is_added(workspace, decoy_scenario) is False
 
 
+def test_recommendation_from_another_budget_fit_state_is_rejected():
+    """Same QuoteVersion, two different Budget Fit runs (different target
+    budgets) -- a recommendation genuinely evaluated under run A must not
+    be attachable to run B's NegotiationContext just because both runs
+    share a QuoteVersion."""
+    quote = _committed_quote(_configuration(tier="enterprise", users=10, coverage="global", history_years=5))
+    state_a = run_budget_fit(quote, 45000.0, BudgetFitConstraints(), RULES)
+    state_b = run_budget_fit(quote, 30000.0, BudgetFitConstraints(), RULES)
+    recommendation_from_a = state_a.result.recommendations[0]
+    assert recommendation_from_a not in state_b.result.recommendations
+
+    with pytest.raises(ScenarioError):
+        create_budget_fit_scenario(quote, state_b, recommendation_from_a)
+
+
+def test_recommendation_from_same_result_is_accepted():
+    quote = _committed_quote(_configuration())
+    budget_fit_state = _realistic_budget_fit_state(quote)
+    recommendation = budget_fit_state.result.recommendations[0]
+    assert recommendation in budget_fit_state.result.recommendations
+
+    scenario = create_budget_fit_scenario(quote, budget_fit_state, recommendation)
+
+    assert scenario.configuration_snapshot == recommendation.configuration_snapshot
+
+
+def test_identical_rerun_differing_only_in_calculated_at_is_duplicate():
+    """Two independent Budget Fit runs with identical inputs produce
+    commercially identical recommendations but fresh
+    PricingSnapshot.calculated_at timestamps each time -- the volatile
+    timestamp alone must not defeat duplicate detection."""
+    quote = _committed_quote(_configuration(tier="enterprise", users=10, coverage="global", history_years=5))
+    first_state = run_budget_fit(quote, 45000.0, BudgetFitConstraints(), RULES)
+    second_state = run_budget_fit(quote, 45000.0, BudgetFitConstraints(), RULES)
+    first_recommendation = first_state.result.recommendations[0]
+    second_recommendation = second_state.result.recommendations[0]
+
+    # Sanity check this test is actually exercising the volatile field.
+    assert first_recommendation.configuration_snapshot == second_recommendation.configuration_snapshot
+    assert (
+        first_recommendation.pricing_snapshot.calculated_at
+        != second_recommendation.pricing_snapshot.calculated_at
+    )
+
+    workspace = add_budget_fit_recommendation(quote, None, first_state, first_recommendation)
+    second_scenario = create_budget_fit_scenario(quote, second_state, second_recommendation)
+
+    assert budget_fit_recommendation_is_added(workspace, second_scenario) is True
+
+
+def test_same_price_different_approval_state_is_not_treated_as_duplicate():
+    quote = _committed_quote(_configuration())
+    budget_fit_state = _realistic_budget_fit_state(quote)
+    recommendation = budget_fit_state.result.recommendations[0]
+    workspace = add_budget_fit_recommendation(quote, None, budget_fit_state, recommendation)
+
+    # Same configuration and final_price, but a materially different
+    # commercial decision (approval state) must not read as a duplicate.
+    decoy_pricing = recommendation.pricing_snapshot.model_copy(
+        update={"approval_required": not recommendation.pricing_snapshot.approval_required}
+    )
+    decoy_scenario = Scenario(
+        name="Decoy",
+        source_version_number=budget_fit_state.source_version_number,
+        configuration_snapshot=recommendation.configuration_snapshot,
+        pricing_snapshot=decoy_pricing,
+        source=ScenarioSource.BUDGET_FIT,
+    )
+
+    assert budget_fit_recommendation_is_added(workspace, decoy_scenario) is False
+
+
+def test_same_price_different_pricing_composition_is_not_treated_as_duplicate():
+    quote = _committed_quote(_configuration())
+    budget_fit_state = _realistic_budget_fit_state(quote)
+    recommendation = budget_fit_state.result.recommendations[0]
+    workspace = add_budget_fit_recommendation(quote, None, budget_fit_state, recommendation)
+
+    # Same final_price, but a different discount/subtotal composition
+    # underneath it -- a genuinely different evaluated commercial decision
+    # that happens to net out to the same headline number.
+    original = recommendation.pricing_snapshot
+    decoy_pricing = original.model_copy(
+        update={
+            "subtotal_before_discount": original.subtotal_before_discount + 1000.0,
+            "discount_amount": original.discount_amount + 1000.0,
+        }
+    )
+    assert decoy_pricing.final_price == original.final_price
+    decoy_scenario = Scenario(
+        name="Decoy",
+        source_version_number=budget_fit_state.source_version_number,
+        configuration_snapshot=recommendation.configuration_snapshot,
+        pricing_snapshot=decoy_pricing,
+        source=ScenarioSource.BUDGET_FIT,
+    )
+
+    assert budget_fit_recommendation_is_added(workspace, decoy_scenario) is False
+
+
 def test_stale_budget_fit_version_cannot_create_scenario():
     quote = _committed_quote(_configuration(tier="core"))
     budget_fit_state = run_budget_fit(quote, 100000.0, BudgetFitConstraints(), RULES)

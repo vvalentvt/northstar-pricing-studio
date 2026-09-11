@@ -959,7 +959,21 @@ def create_budget_fit_scenario(
     refuses the unchanged-baseline recommendation, since the committed
     quote is already the baseline in Scenario Comparison and doesn't need
     a duplicate Scenario representing itself.
+
+    Also validates that `recommendation` genuinely belongs to
+    `budget_fit_state.result` -- membership by value equality against
+    BudgetFitRecommendation's own (frozen, fully-compared) fields, not
+    rank or price alone -- so a recommendation from a different Budget Fit
+    run can never be attached to this state's NegotiationContext (same
+    QuoteVersion, different target budget/constraints would otherwise
+    silently mismatch a recommendation with the wrong negotiation intent).
     """
+    if recommendation not in budget_fit_state.result.recommendations:
+        raise ScenarioError(
+            "This recommendation does not belong to the supplied Budget Fit "
+            "result. Run Budget Fit again and add a recommendation from the "
+            "current result."
+        )
     if budget_fit_state.source_version_number != quote.current_version.version_number:
         raise ScenarioError(
             "This Budget Fit result is based on an earlier pricing version. "
@@ -984,24 +998,66 @@ def create_budget_fit_scenario(
     )
 
 
+def _pricing_snapshot_signature(pricing_snapshot: PricingSnapshot) -> tuple:
+    """A normalized semantic identity for a PricingSnapshot.
+
+    Includes every commercially meaningful field -- rule/policy version,
+    price composition, discount, approval state and reason, and the
+    authority thresholds that were active at calculation time -- so two
+    snapshots that differ in any historically meaningful fact (e.g. one
+    requires approval and the other doesn't, even at the same final_price)
+    are never treated as the same evaluated commercial decision.
+
+    Deliberately excludes only `calculated_at`: a live timestamp that
+    changes on every calculation even when every commercial fact above is
+    identical, so it must not by itself make an otherwise identical
+    recommendation look different after an independent Budget Fit rerun.
+    `adjustments` is a tuple of frozen AdjustmentSnapshot models, which
+    already compare by value, so it's included as-is rather than
+    flattened -- no generalized hashing, just the model's own real fields.
+    """
+    return (
+        pricing_snapshot.rule_version,
+        pricing_snapshot.base_price,
+        pricing_snapshot.adjustments,
+        pricing_snapshot.subtotal_before_discount,
+        pricing_snapshot.discount_amount,
+        pricing_snapshot.final_price,
+        pricing_snapshot.approval_required,
+        pricing_snapshot.approval_reason,
+        pricing_snapshot.self_service_threshold_percent,
+        pricing_snapshot.max_allowed_discount_percent,
+    )
+
+
 def budget_fit_recommendation_is_added(workspace: ScenarioWorkspace, scenario: Scenario) -> bool:
     """True if an equivalent Budget Fit scenario already exists in the
     workspace.
 
     Identified by immutable commercial content -- source version,
-    configuration snapshot, and final price -- not by scenario_id (random
-    per instance) and not by price alone (two genuinely different
-    configurations can coincidentally cost the same). final_price is
-    compared rather than full PricingSnapshot equality so that
-    independently re-running Budget Fit with unchanged inputs (a fresh
-    PricingSnapshot.calculated_at each time) doesn't defeat duplicate
-    detection for what is commercially the same recommendation.
+    configuration snapshot, and a normalized PricingSnapshot signature --
+    not by scenario_id (random per instance), not by final_price alone
+    (two genuinely different configurations can coincidentally cost the
+    same, and two genuinely different commercial decisions -- e.g.
+    differing approval state -- can coincidentally share a final_price
+    too), and not by full PricingSnapshot equality (which would fail to
+    recognize a commercially identical recommendation produced by an
+    independent Budget Fit rerun, since calculated_at is always fresh).
+
+    NegotiationContext is deliberately NOT part of this identity: Northstar
+    treats two identical evaluated commercial outcomes (same configuration,
+    same real pricing facts) as one alternative regardless of which Budget
+    Fit run under which target budget/constraints discovered them --
+    Scenario Comparison has no NegotiationContext-specific display, so two
+    entries differing only in undisplayed negotiation metadata would look
+    like an unexplained duplicate to the user, not a meaningful distinction.
     """
     return any(
         existing.source == ScenarioSource.BUDGET_FIT
         and existing.source_version_number == scenario.source_version_number
         and existing.configuration_snapshot == scenario.configuration_snapshot
-        and existing.pricing_snapshot.final_price == scenario.pricing_snapshot.final_price
+        and _pricing_snapshot_signature(existing.pricing_snapshot)
+        == _pricing_snapshot_signature(scenario.pricing_snapshot)
         for existing in workspace.scenarios
     )
 
