@@ -25,6 +25,7 @@ from pricing_engine import QuoteRequest, QuoteResult, calculate_quote
 from quotes import (
     AdjustmentSnapshot,
     ConfigurationSnapshot,
+    NegotiationContext,
     PricingSnapshot,
     Quote,
     QuoteVersion,
@@ -889,3 +890,216 @@ def budget_fit_recommendation_rationale(recommendation: BudgetFitRecommendation)
         f"Highest capability preservation • {recommendation.change_count} "
         f"{change_word} from current quote"
     )
+
+
+# ---------------------------------------------------------------------------
+# Budget Fit -> Scenario -- Phase 4C. A recommendation is decision support,
+# not a commercial decision: adding it only ever touches ScenarioWorkspace.
+# Only the existing promote_selected_scenario (Phase 3) can ever create a
+# QuoteVersion. Nothing here calls calculate_quote or find_budget_fit --
+# the recommendation's own already-evaluated snapshots are reused exactly.
+# ---------------------------------------------------------------------------
+
+
+def _budget_fit_scenario_name(recommendation: BudgetFitRecommendation) -> str:
+    if recommendation.rank == 1:
+        return "Budget Fit — Recommended"
+    return f"Budget Fit — Option {recommendation.rank}"
+
+
+def build_budget_fit_negotiation_context(
+    target_budget: float, constraints: BudgetFitConstraints
+) -> NegotiationContext:
+    """Best-effort mapping of Budget Fit intent onto the existing
+    NegotiationContext model. required_attributes / flexible_attributes
+    are free-form labels (the model's own shape), not a full re-encoding
+    of BudgetFitConstraints.
+
+    NegotiationContext has no numeric-floor concept, so minimum_users is
+    folded into required_attributes as a short note rather than changing
+    the model -- a deliberate, documented limitation, not an oversight.
+    """
+    required_fields: set[BudgetFitField] = set(constraints.locked_fields)
+    if constraints.required_premium_support:
+        required_fields.add(BudgetFitField.PREMIUM_SUPPORT)
+    if constraints.required_implementation_services:
+        required_fields.add(BudgetFitField.IMPLEMENTATION_SERVICES)
+
+    # Iterate BudgetFitField's own declared order (not the set directly) so
+    # the resulting tuples are deterministic across calls.
+    required_attributes = [
+        BUDGET_FIT_FIELD_LABELS[field] for field in BudgetFitField if field in required_fields
+    ]
+    if constraints.minimum_users is not None:
+        required_attributes.append(f"Minimum {constraints.minimum_users} users")
+
+    flexible_attributes = [
+        BUDGET_FIT_FIELD_LABELS[field] for field in BudgetFitField if field not in required_fields
+    ]
+
+    return NegotiationContext(
+        target_budget=target_budget,
+        required_attributes=tuple(required_attributes),
+        flexible_attributes=tuple(flexible_attributes),
+    )
+
+
+def create_budget_fit_scenario(
+    quote: Quote,
+    budget_fit_state: BudgetFitViewState,
+    recommendation: BudgetFitRecommendation,
+) -> Scenario:
+    """Build a Scenario directly from an already-evaluated Budget Fit
+    recommendation.
+
+    Reuses recommendation.configuration_snapshot and .pricing_snapshot
+    exactly as returned by find_budget_fit -- no recalculation. Validates
+    version lineage independently of the UI (defense in depth: Phase 4B's
+    screen should already prevent reaching this with a stale result) and
+    refuses the unchanged-baseline recommendation, since the committed
+    quote is already the baseline in Scenario Comparison and doesn't need
+    a duplicate Scenario representing itself.
+
+    Also validates that `recommendation` genuinely belongs to
+    `budget_fit_state.result` -- membership by value equality against
+    BudgetFitRecommendation's own (frozen, fully-compared) fields, not
+    rank or price alone -- so a recommendation from a different Budget Fit
+    run can never be attached to this state's NegotiationContext (same
+    QuoteVersion, different target budget/constraints would otherwise
+    silently mismatch a recommendation with the wrong negotiation intent).
+    """
+    if recommendation not in budget_fit_state.result.recommendations:
+        raise ScenarioError(
+            "This recommendation does not belong to the supplied Budget Fit "
+            "result. Run Budget Fit again and add a recommendation from the "
+            "current result."
+        )
+    if budget_fit_state.source_version_number != quote.current_version.version_number:
+        raise ScenarioError(
+            "This Budget Fit result is based on an earlier pricing version. "
+            "Run Budget Fit again from the current quote before adding it "
+            "to Alternatives."
+        )
+    if recommendation.is_baseline:
+        raise ScenarioError(
+            "The current quote already fits the customer's budget -- there is "
+            "no alternative to add."
+        )
+
+    return Scenario(
+        name=_budget_fit_scenario_name(recommendation),
+        source_version_number=budget_fit_state.source_version_number,
+        configuration_snapshot=recommendation.configuration_snapshot,
+        pricing_snapshot=recommendation.pricing_snapshot,
+        source=ScenarioSource.BUDGET_FIT,
+        negotiation_context=build_budget_fit_negotiation_context(
+            budget_fit_state.request.target_budget, budget_fit_state.request.constraints
+        ),
+    )
+
+
+def _pricing_snapshot_signature(pricing_snapshot: PricingSnapshot) -> tuple:
+    """A normalized semantic identity for a PricingSnapshot.
+
+    Includes every commercially meaningful field -- rule/policy version,
+    price composition, discount, approval state and reason, and the
+    authority thresholds that were active at calculation time -- so two
+    snapshots that differ in any historically meaningful fact (e.g. one
+    requires approval and the other doesn't, even at the same final_price)
+    are never treated as the same evaluated commercial decision.
+
+    Deliberately excludes only `calculated_at`: a live timestamp that
+    changes on every calculation even when every commercial fact above is
+    identical, so it must not by itself make an otherwise identical
+    recommendation look different after an independent Budget Fit rerun.
+    `adjustments` is a tuple of frozen AdjustmentSnapshot models, which
+    already compare by value, so it's included as-is rather than
+    flattened -- no generalized hashing, just the model's own real fields.
+    """
+    return (
+        pricing_snapshot.rule_version,
+        pricing_snapshot.base_price,
+        pricing_snapshot.adjustments,
+        pricing_snapshot.subtotal_before_discount,
+        pricing_snapshot.discount_amount,
+        pricing_snapshot.final_price,
+        pricing_snapshot.approval_required,
+        pricing_snapshot.approval_reason,
+        pricing_snapshot.self_service_threshold_percent,
+        pricing_snapshot.max_allowed_discount_percent,
+    )
+
+
+def budget_fit_recommendation_is_added(workspace: ScenarioWorkspace, scenario: Scenario) -> bool:
+    """True if an equivalent Budget Fit scenario already exists in the
+    workspace.
+
+    Identified by immutable commercial content -- source version,
+    configuration snapshot, and a normalized PricingSnapshot signature --
+    not by scenario_id (random per instance), not by final_price alone
+    (two genuinely different configurations can coincidentally cost the
+    same, and two genuinely different commercial decisions -- e.g.
+    differing approval state -- can coincidentally share a final_price
+    too), and not by full PricingSnapshot equality (which would fail to
+    recognize a commercially identical recommendation produced by an
+    independent Budget Fit rerun, since calculated_at is always fresh).
+
+    NegotiationContext is deliberately NOT part of this identity: Northstar
+    treats two identical evaluated commercial outcomes (same configuration,
+    same real pricing facts) as one alternative regardless of which Budget
+    Fit run under which target budget/constraints discovered them --
+    Scenario Comparison has no NegotiationContext-specific display, so two
+    entries differing only in undisplayed negotiation metadata would look
+    like an unexplained duplicate to the user, not a meaningful distinction.
+    """
+    return any(
+        existing.source == ScenarioSource.BUDGET_FIT
+        and existing.source_version_number == scenario.source_version_number
+        and existing.configuration_snapshot == scenario.configuration_snapshot
+        and _pricing_snapshot_signature(existing.pricing_snapshot)
+        == _pricing_snapshot_signature(scenario.pricing_snapshot)
+        for existing in workspace.scenarios
+    )
+
+
+def add_budget_fit_recommendation(
+    quote: Quote,
+    workspace: ScenarioWorkspace | None,
+    budget_fit_state: BudgetFitViewState,
+    recommendation: BudgetFitRecommendation,
+) -> ScenarioWorkspace:
+    """Add one Budget Fit recommendation to the quote's negotiation
+    workspace -- creating a new workspace if none exists yet, or reusing
+    an existing one anchored to the same quote/base version so manual and
+    Budget Fit scenarios coexist in one workspace (never a parallel
+    Budget Fit workspace).
+
+    Raises ScenarioError if: the workspace belongs to a different quote or
+    a different base version than this Budget Fit result, the
+    recommendation is stale or the unchanged baseline (see
+    create_budget_fit_scenario), or an equivalent recommendation has
+    already been added.
+    """
+    if workspace is not None and workspace.quote_id != quote.quote_id:
+        raise ScenarioError(
+            f"The current negotiation workspace belongs to a different quote "
+            f"({workspace.quote_id}). Start exploration again from the current quote."
+        )
+    if workspace is not None and workspace.base_version_number != budget_fit_state.source_version_number:
+        raise ScenarioError(
+            "The current negotiation workspace is based on a different pricing "
+            "version than this Budget Fit result. Return to Review Pricing and "
+            "start from the current quote."
+        )
+
+    scenario = create_budget_fit_scenario(quote, budget_fit_state, recommendation)
+
+    if workspace is not None and budget_fit_recommendation_is_added(workspace, scenario):
+        raise ScenarioError("This recommendation has already been added to Alternatives.")
+
+    if workspace is None:
+        workspace = ScenarioWorkspace(
+            quote_id=quote.quote_id, base_version_number=budget_fit_state.source_version_number
+        )
+    workspace.add_scenario(scenario)
+    return workspace

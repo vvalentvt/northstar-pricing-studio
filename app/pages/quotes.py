@@ -47,17 +47,20 @@ from app_state import (
     PricingState,
     ScenarioError,
     WorkflowStep,
+    add_budget_fit_recommendation,
     build_budget_fit_constraints,
     build_recommendation_views,
     build_review_pricing,
     build_scenario_comparison,
     budget_fit_inputs_changed,
+    budget_fit_recommendation_is_added,
     budget_fit_shared_preserved_capabilities,
     budget_fit_tradeoff_fields,
     budget_fit_version_is_stale,
     calculate_pricing,
     commit_quote,
     configuration_input_from_snapshot,
+    create_budget_fit_scenario,
     create_manual_scenario,
     create_scenario_workspace,
     derive_status_label,
@@ -88,7 +91,7 @@ from components import (
     render_stepper,
     render_why_this_price,
 )
-from quotes import Quote, ScenarioWorkspace
+from quotes import Quote, ScenarioSource, ScenarioWorkspace
 
 
 def render_quotes_overview() -> None:
@@ -876,13 +879,45 @@ def render_budget_fit(quote: Quote, rules: dict) -> None:
         render_budget_fit_results_header(budget_fit_state.result)
         views = build_recommendation_views(budget_fit_state)
         recommendations = tuple(v.recommendation for v in views)
-        render_budget_fit_comparison(
+        workspace = get_scenario_workspace()
+        already_added = tuple(
+            workspace is not None
+            and budget_fit_recommendation_is_added(
+                workspace, create_budget_fit_scenario(quote, budget_fit_state, rec)
+            )
+            for rec in recommendations
+        )
+        clicked = render_budget_fit_comparison(
             views,
             tradeoff_fields=budget_fit_tradeoff_fields(recommendations),
             shared_preserved=budget_fit_shared_preserved_capabilities(
                 recommendations, budget_fit_state.request.baseline_configuration
             ),
+            already_added=already_added,
+            key_prefix=f"budget_fit_{form_key}",
         )
+        if clicked is not None:
+            try:
+                workspace = add_budget_fit_recommendation(quote, workspace, budget_fit_state, clicked)
+            except ScenarioError as exc:
+                st.error(str(exc))
+            else:
+                set_scenario_workspace(workspace)
+                st.rerun()
+
+        has_added_budget_fit_scenario = (
+            workspace is not None
+            and workspace.quote_id == quote.quote_id
+            and workspace.base_version_number == quote.current_version.version_number
+            and any(s.source == ScenarioSource.BUDGET_FIT for s in workspace.scenarios)
+        )
+        if has_added_budget_fit_scenario:
+            st.divider()
+            if st.button("View Alternatives", type="primary", key=f"budget_fit_view_alternatives_{form_key}"):
+                set_scenario_workspace(workspace)
+                set_fitting_budget(False)
+                set_exploring_alternatives(True)
+                st.rerun()
 
     st.divider()
     if st.button("← Back to Review Pricing", key=f"budget_fit_back_{form_key}"):

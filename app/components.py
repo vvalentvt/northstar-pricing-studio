@@ -11,6 +11,7 @@ from app_state import (
     WORKFLOW_STEP_LABELS,
     WORKFLOW_STEP_ORDER,
     BudgetFitField,
+    BudgetFitRecommendation,
     BudgetFitRecommendationView,
     BudgetFitResult,
     ComparisonOption,
@@ -337,7 +338,10 @@ def render_budget_fit_comparison(
     views: tuple[BudgetFitRecommendationView, ...],
     tradeoff_fields: tuple[BudgetFitField, ...],
     shared_preserved: tuple[str, ...],
-) -> None:
+    already_added: tuple[bool, ...],
+    *,
+    key_prefix: str,
+) -> BudgetFitRecommendation | None:
     """Render up to three recommendations as a single comparison board:
     shared context once (the caller renders that separately), one row per
     attribute, one column per option.
@@ -353,6 +357,12 @@ def render_budget_fit_comparison(
     If Streamlit stacks these columns at a narrow viewport, that is an
     acceptable, unstyled fallback -- no custom responsive layout is built
     for it.
+
+    Returns the recommendation whose "Add to Alternatives" button was
+    clicked this run, or None -- mirrors render_scenario_comparison_table's
+    return-the-clicked-id pattern. The caller owns the actual
+    add_budget_fit_recommendation(...) call and any rerun; this function
+    never mutates a workspace itself.
     """
     column_widths = [2] + [1] * len(views)
 
@@ -400,6 +410,16 @@ def render_budget_fit_comparison(
         rationale_cols[0].write("")
         rationale_cols[1].caption(budget_fit_recommendation_rationale(views[0].recommendation))
 
+    action_cols = st.columns(column_widths)
+    action_cols[0].write("")
+    clicked: BudgetFitRecommendation | None = None
+    for rank, (col, view, added) in enumerate(zip(action_cols[1:], views, already_added), start=1):
+        with col:
+            if added:
+                st.markdown(":blue[**ADDED TO ALTERNATIVES**]")
+            elif st.button("Add to Alternatives", key=f"{key_prefix}_add_{rank}"):
+                clicked = view.recommendation
+
     if tradeoff_fields:
         st.divider()
         st.caption("Trade-offs")
@@ -413,3 +433,5 @@ def render_budget_fit_comparison(
         st.divider()
         st.caption("Preserved across all options")
         st.write(" • ".join(shared_preserved))
+
+    return clicked
