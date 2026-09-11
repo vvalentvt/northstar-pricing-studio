@@ -7,15 +7,22 @@ from typing import Protocol
 import streamlit as st
 
 from app_state import (
+    BUDGET_FIT_FIELD_LABELS,
     WORKFLOW_STEP_LABELS,
     WORKFLOW_STEP_ORDER,
+    BudgetFitField,
+    BudgetFitRecommendationView,
+    BudgetFitResult,
     ComparisonOption,
     ReviewPricingState,
     ScenarioComparison,
     WorkflowStep,
+    budget_fit_recommendation_rationale,
+    budget_fit_tradeoff_cell,
+    format_budget_fit_headroom,
     format_money,
 )
-from quotes import Scenario
+from quotes import ConfigurationSnapshot, Scenario
 
 _STATUS_COLORS: dict[str, str] = {
     "DRAFT": "gray",
@@ -277,3 +284,132 @@ def render_selected_scenario_summary(
         for change in changes:
             st.write(f"• {change}")
     st.caption("Selecting an alternative does not change the committed quote.")
+
+
+def render_budget_fit_baseline_summary(
+    configuration: ConfigurationSnapshot, current_price: float
+) -> None:
+    """The compact "what we are trying to preserve" card -- never visually
+    competes with the Budget Fit form; a plain subheader + metric + the
+    same configuration bullets used elsewhere."""
+    st.subheader("Current Quote")
+    st.metric("Current final price", format_money(current_price))
+    render_configuration_bullets(configuration)
+
+
+def render_budget_fit_results_header(result: BudgetFitResult) -> None:
+    st.subheader("Budget Fit Recommendations")
+    st.caption(f"Current quote: {format_money(result.baseline_price)}")
+    st.caption(f"Customer budget: {format_money(result.target_budget)}")
+    count = result.feasible_candidate_count
+    st.caption(f"{count} valid configuration{'s' if count != 1 else ''} found")
+    st.write(
+        "Recommended options preserve as much of the current solution as "
+        "possible while staying within budget."
+    )
+
+
+def render_budget_fit_baseline_fits(result: BudgetFitResult) -> None:
+    """The customer's budget already covers the committed quote -- shown as
+    a clear, positive outcome, never as though Budget Fit found a
+    meaningful alternative worth downgrading to."""
+    st.info("Current quote already fits the customer's budget.")
+    c1, c2 = st.columns(2)
+    c1.metric("Current price", format_money(result.baseline_price))
+    c2.metric("Target budget", format_money(result.target_budget))
+    st.caption("No configuration reduction is required.")
+
+
+def render_budget_fit_no_fit(result: BudgetFitResult) -> None:
+    """A no-fit search is a valid product outcome, not an application
+    failure -- amber/neutral treatment, never the red reserved for actual
+    blocking validation errors, and no fabricated "minimum possible
+    price" or claim about which specific requirement is blocking."""
+    st.warning("No valid configuration fits this budget with the current requirements.")
+    st.caption(f"Target budget: {format_money(result.target_budget)}")
+    st.write("Try:")
+    st.write("- increasing the available budget")
+    st.write("- relaxing one or more must-keep requirements")
+    st.write("- lowering the minimum user requirement")
+
+
+def render_budget_fit_comparison(
+    views: tuple[BudgetFitRecommendationView, ...],
+    tradeoff_fields: tuple[BudgetFitField, ...],
+    shared_preserved: tuple[str, ...],
+) -> None:
+    """Render up to three recommendations as a single comparison board:
+    shared context once (the caller renders that separately), one row per
+    attribute, one column per option.
+
+    "SHARED CONTEXT ONCE, DIFFERENCES BY OPTION" -- mirrors
+    render_scenario_comparison_table's row-of-columns idiom rather than
+    stacking three independent full-height cards, so the fields that
+    actually differ between options line up for scanning across a row.
+    Order is exactly `views`' own order (already rank order from
+    BudgetFitResult); nothing here reorders, reranks, or filters.
+    Recommendation 1 gets blue/neutral emphasis, never green -- green
+    stays reserved for pricing-authority status, not ranking position.
+    If Streamlit stacks these columns at a narrow viewport, that is an
+    acceptable, unstyled fallback -- no custom responsive layout is built
+    for it.
+    """
+    column_widths = [2] + [1] * len(views)
+
+    header_cols = st.columns(column_widths)
+    header_cols[0].write("")
+    for rank, (col, view) in enumerate(zip(header_cols[1:], views), start=1):
+        if rank == 1:
+            col.markdown(":blue[**RECOMMENDED**]")
+        else:
+            col.markdown(f"**Option {rank}**")
+
+    price_cols = st.columns(column_widths)
+    price_cols[0].write("**Price**")
+    for col, view in zip(price_cols[1:], views):
+        with col:
+            st.markdown(f"**{format_money(view.recommendation.pricing_snapshot.final_price)}**")
+            delta = view.price_delta_vs_current
+            if delta < 0:
+                st.caption(f"{format_money(-delta)} lower than current")
+            elif delta > 0:
+                st.caption(f"{format_money(delta)} higher than current")
+            else:
+                st.caption("Same as current")
+
+    budget_cols = st.columns(column_widths)
+    budget_cols[0].write("Budget fit")
+    for col, view in zip(budget_cols[1:], views):
+        col.write(format_budget_fit_headroom(view.budget_headroom))
+
+    capability_cols = st.columns(column_widths)
+    capability_cols[0].write("Capability preserved")
+    for col, view in zip(capability_cols[1:], views):
+        col.write(f"{view.recommendation.capability_score:.1%}")
+
+    approval_cols = st.columns(column_widths)
+    approval_cols[0].write("Approval")
+    for col, view in zip(approval_cols[1:], views):
+        with col:
+            render_status_badge(
+                "NEEDS APPROVAL" if view.recommendation.pricing_snapshot.approval_required else "PRICED"
+            )
+
+    if views:
+        rationale_cols = st.columns(column_widths)
+        rationale_cols[0].write("")
+        rationale_cols[1].caption(budget_fit_recommendation_rationale(views[0].recommendation))
+
+    if tradeoff_fields:
+        st.divider()
+        st.caption("Trade-offs")
+        for field in tradeoff_fields:
+            row_cols = st.columns(column_widths)
+            row_cols[0].write(BUDGET_FIT_FIELD_LABELS.get(field, field.value))
+            for col, view in zip(row_cols[1:], views):
+                col.write(budget_fit_tradeoff_cell(view.recommendation, field))
+
+    if shared_preserved:
+        st.divider()
+        st.caption("Preserved across all options")
+        st.write(" • ".join(shared_preserved))

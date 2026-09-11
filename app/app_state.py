@@ -13,6 +13,14 @@ from datetime import datetime
 from enum import Enum
 from uuid import uuid4
 
+from budget_fit import (
+    BudgetFitConstraints,
+    BudgetFitField,
+    BudgetFitRecommendation,
+    BudgetFitRequest,
+    BudgetFitResult,
+    find_budget_fit,
+)
 from pricing_engine import QuoteRequest, QuoteResult, calculate_quote
 from quotes import (
     AdjustmentSnapshot,
@@ -571,3 +579,313 @@ def promote_selected_scenario(quote: Quote, workspace: ScenarioWorkspace) -> Quo
         return workspace.promote_selected(quote)
     except ValueError as exc:
         raise ScenarioError(str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Budget Fit -- the UI collects intent; the Phase 4A engine (find_budget_fit)
+# remains the sole authority on which configurations are feasible and how
+# they rank. Nothing below recalculates a price, reranks a result, or
+# reimplements capability scoring -- see docs/adr/002-budget-fit-optimization.md.
+# ---------------------------------------------------------------------------
+
+#: The BudgetFitField values exposed as "must keep exactly" checkboxes.
+#: Users and the two services have their own dedicated constraint
+#: mechanisms (minimum_users, required_premium_support/
+#: required_implementation_services) and are deliberately not offered as
+#: exact-match locks here.
+BUDGET_FIT_LOCKABLE_FIELDS: tuple[BudgetFitField, ...] = (
+    BudgetFitField.TIER,
+    BudgetFitField.COVERAGE,
+    BudgetFitField.HISTORY_YEARS,
+    BudgetFitField.CONTRACT_MONTHS,
+    BudgetFitField.RENEWAL,
+)
+
+BUDGET_FIT_FIELD_LABELS: dict[BudgetFitField, str] = {
+    BudgetFitField.TIER: "Tier",
+    BudgetFitField.USERS: "Users",
+    BudgetFitField.COVERAGE: "Coverage",
+    BudgetFitField.HISTORY_YEARS: "Historical depth",
+    BudgetFitField.CONTRACT_MONTHS: "Contract term",
+    BudgetFitField.RENEWAL: "Renewal",
+    BudgetFitField.PREMIUM_SUPPORT: "Premium support",
+    BudgetFitField.IMPLEMENTATION_SERVICES: "Implementation services",
+}
+
+#: Genuine product/service capability dimensions -- mirrors the engine's
+#: own _CAPABILITY_FIELDS. Commercial mechanics (contract term, renewal)
+#: are shown in "changed fields" but not reinforced in "preserved
+#: capabilities", since they were never scored as capability either.
+_BUDGET_FIT_CAPABILITY_FIELDS: tuple[BudgetFitField, ...] = (
+    BudgetFitField.TIER,
+    BudgetFitField.USERS,
+    BudgetFitField.COVERAGE,
+    BudgetFitField.HISTORY_YEARS,
+    BudgetFitField.PREMIUM_SUPPORT,
+    BudgetFitField.IMPLEMENTATION_SERVICES,
+)
+
+
+@dataclass(frozen=True)
+class BudgetFitViewState:
+    """A BudgetFitResult paired with the exact request that produced it and
+    the QuoteVersion it was anchored to.
+
+    This is everything the UI needs to detect staleness (version advanced,
+    or inputs edited) without keeping a second copy of any pricing or
+    capability figure -- `result` remains the sole source of recommendation
+    truth.
+    """
+
+    source_version_number: int
+    request: BudgetFitRequest
+    result: BudgetFitResult
+
+
+def build_budget_fit_constraints(
+    *,
+    lock_tier: bool,
+    lock_coverage: bool,
+    lock_history_years: bool,
+    lock_contract_months: bool,
+    lock_renewal: bool,
+    minimum_users: int | None,
+    required_premium_support: bool,
+    required_implementation_services: bool,
+) -> BudgetFitConstraints:
+    """Translate individual UI checkboxes into the engine's own
+    BudgetFitConstraints shape -- one boolean per real, lockable
+    BudgetFitField. Deliberately not a generic constraint-rule builder."""
+    locked_fields: set[BudgetFitField] = set()
+    if lock_tier:
+        locked_fields.add(BudgetFitField.TIER)
+    if lock_coverage:
+        locked_fields.add(BudgetFitField.COVERAGE)
+    if lock_history_years:
+        locked_fields.add(BudgetFitField.HISTORY_YEARS)
+    if lock_contract_months:
+        locked_fields.add(BudgetFitField.CONTRACT_MONTHS)
+    if lock_renewal:
+        locked_fields.add(BudgetFitField.RENEWAL)
+    return BudgetFitConstraints(
+        locked_fields=frozenset(locked_fields),
+        minimum_users=minimum_users,
+        required_premium_support=required_premium_support,
+        required_implementation_services=required_implementation_services,
+    )
+
+
+def run_budget_fit(
+    quote: Quote,
+    target_budget: float,
+    constraints: BudgetFitConstraints,
+    rules: dict,
+    max_recommendations: int = 3,
+) -> BudgetFitViewState:
+    """The one place the UI calls into the Budget Fit engine.
+
+    Always anchors the search to quote.current_version.configuration_snapshot
+    -- never a dirty Configure widget, a stale draft PricingState, or a
+    Scenario draft -- and records which version that was, so a later quote
+    advance can be detected as staleness instead of silently reinterpreted.
+    Raises pydantic.ValidationError for invalid inputs (e.g. a non-positive
+    target budget); the caller is responsible for turning that into a
+    user-facing message.
+    """
+    version = quote.current_version
+    request = BudgetFitRequest(
+        target_budget=target_budget,
+        baseline_configuration=version.configuration_snapshot,
+        constraints=constraints,
+        max_recommendations=max_recommendations,
+    )
+    result = find_budget_fit(request, rules)
+    return BudgetFitViewState(
+        source_version_number=version.version_number,
+        request=request,
+        result=result,
+    )
+
+
+def budget_fit_version_is_stale(view_state: BudgetFitViewState | None, quote: Quote) -> bool:
+    """True if the Quote has advanced past the version a stored Budget Fit
+    result was computed against -- the result must not be shown as though
+    it still applies to the current quote."""
+    if view_state is None:
+        return False
+    return view_state.source_version_number != quote.current_version.version_number
+
+
+def budget_fit_inputs_changed(
+    view_state: BudgetFitViewState | None,
+    target_budget: float,
+    constraints: BudgetFitConstraints,
+) -> bool:
+    """True if the live target budget/constraints no longer match the
+    inputs that produced the stored result.
+
+    Compares the actual typed request state rather than maintaining a
+    separate dirty flag, mirroring how `is_stale` already compares
+    PricingState to live Configure/Scenario form state.
+    """
+    if view_state is None:
+        return False
+    return (
+        view_state.request.target_budget != target_budget
+        or view_state.request.constraints != constraints
+    )
+
+
+def describe_preserved_capabilities(
+    preserved_fields: tuple[BudgetFitField, ...], baseline: ConfigurationSnapshot
+) -> tuple[str, ...]:
+    """Human-readable bullets for the baseline capabilities a recommendation
+    kept unchanged.
+
+    Derived only from the engine's own preserved_fields and the baseline
+    snapshot -- never a second scoring pass. Boolean capabilities the
+    baseline never had are omitted (nothing meaningful to reinforce);
+    commercial mechanics (contract term, renewal) are left to the
+    changed-fields list, matching what the engine itself scores as
+    capability.
+    """
+    descriptions: list[str] = []
+    for field in _BUDGET_FIT_CAPABILITY_FIELDS:
+        if field not in preserved_fields:
+            continue
+        if field is BudgetFitField.TIER:
+            descriptions.append(f"{baseline.tier.title()} tier")
+        elif field is BudgetFitField.USERS:
+            descriptions.append(f"{baseline.users} users")
+        elif field is BudgetFitField.COVERAGE:
+            descriptions.append(f"{baseline.coverage.replace('_', ' ').title()} coverage")
+        elif field is BudgetFitField.HISTORY_YEARS:
+            depth = baseline.history_years
+            descriptions.append(f"{depth} year{'s' if depth != 1 else ''} history")
+        elif field is BudgetFitField.PREMIUM_SUPPORT and baseline.premium_support:
+            descriptions.append("Premium support")
+        elif field is BudgetFitField.IMPLEMENTATION_SERVICES and baseline.implementation_services:
+            descriptions.append("Implementation services")
+    return tuple(descriptions)
+
+
+@dataclass(frozen=True)
+class BudgetFitRecommendationView:
+    """Presentation-ready facts for one recommendation.
+
+    The only arithmetic here is a subtraction between two already-known
+    monetary values (current committed price, target budget, and the
+    recommendation's own already-priced final_price) -- never a new
+    pricing calculation.
+    """
+
+    recommendation: BudgetFitRecommendation
+    price_delta_vs_current: float
+    budget_headroom: float
+
+
+def build_recommendation_views(
+    view_state: BudgetFitViewState,
+) -> tuple[BudgetFitRecommendationView, ...]:
+    result = view_state.result
+    views = []
+    for rec in result.recommendations:
+        price = rec.pricing_snapshot.final_price
+        views.append(
+            BudgetFitRecommendationView(
+                recommendation=rec,
+                price_delta_vs_current=price - result.baseline_price,
+                budget_headroom=result.target_budget - price,
+            )
+        )
+    return tuple(views)
+
+
+# ---------------------------------------------------------------------------
+# Budget Fit comparison surface -- "shared context once, differences by
+# option". Everything below is presentation logic over data the engine
+# already returns (FieldChange, preserved_fields, capability_score, ...);
+# no new scoring, ranking, or capability computation is introduced.
+# ---------------------------------------------------------------------------
+
+#: The symbol shown in a trade-off cell for an option that did not change
+#: that particular dimension.
+BUDGET_FIT_NO_CHANGE = "—"
+
+
+def format_budget_fit_headroom(headroom: float) -> str:
+    """"At budget" once headroom rounds to $0, otherwise "$X under
+    budget" -- final price and headroom are the primary budget metrics;
+    budget_utilization stays available on the model but is not the
+    headline figure here (see BudgetFitRecommendation.budget_utilization)."""
+    rounded = round(headroom)
+    if rounded <= 0:
+        return "At budget"
+    return f"{format_money(rounded)} under budget"
+
+
+def budget_fit_tradeoff_fields(
+    recommendations: tuple[BudgetFitRecommendation, ...],
+) -> tuple[BudgetFitField, ...]:
+    """Every field that changed in at least one displayed recommendation,
+    in engine field order -- the row labels of the trade-off comparison.
+
+    Built from each recommendation's own `changed_fields` (already in a
+    stable, consistent order -- see optimizer._ALL_FIELDS), never
+    rediscovered from widget state.
+    """
+    fields: list[BudgetFitField] = []
+    seen: set[BudgetFitField] = set()
+    for rec in recommendations:
+        for change in rec.changed_fields:
+            if change.field not in seen:
+                seen.add(change.field)
+                fields.append(change.field)
+    return tuple(fields)
+
+
+def budget_fit_tradeoff_cell(recommendation: BudgetFitRecommendation, field: BudgetFitField) -> str:
+    """"baseline → candidate" for one recommendation/field cell, or the
+    no-change symbol if this particular recommendation preserved that
+    field (even though another displayed recommendation changed it)."""
+    for change in recommendation.changed_fields:
+        if change.field is field:
+            return f"{change.baseline_value} → {change.candidate_value}"
+    return BUDGET_FIT_NO_CHANGE
+
+
+def budget_fit_shared_preserved_capabilities(
+    recommendations: tuple[BudgetFitRecommendation, ...], baseline: ConfigurationSnapshot
+) -> tuple[str, ...]:
+    """Baseline capabilities preserved by EVERY displayed recommendation --
+    the intersection of each recommendation's own `preserved_fields`, so a
+    field identical across all options is stated once instead of repeated
+    in every column. A field preserved by some but not all recommendations
+    belongs in the trade-off rows instead (mutually exclusive by
+    construction: a field is either changed or preserved for a given
+    recommendation, never both).
+    """
+    if not recommendations:
+        return ()
+    common_fields = set(recommendations[0].preserved_fields)
+    for rec in recommendations[1:]:
+        common_fields &= set(rec.preserved_fields)
+    return describe_preserved_capabilities(tuple(common_fields), baseline)
+
+
+def budget_fit_recommendation_rationale(recommendation: BudgetFitRecommendation) -> str:
+    """A short, factual explanation for the top-ranked recommendation --
+    never a new scoring algorithm.
+
+    "Highest capability preservation" is safe to state unconditionally
+    because capability_score is _rank_key's primary, dominant sort
+    criterion (optimizer._rank_key): the top-ranked recommendation's
+    capability_score is guaranteed to be at least as high as every other
+    displayed recommendation's. The change count is read directly off
+    this recommendation, not compared to the others.
+    """
+    change_word = "change" if recommendation.change_count == 1 else "changes"
+    return (
+        f"Highest capability preservation • {recommendation.change_count} "
+        f"{change_word} from current quote"
+    )
