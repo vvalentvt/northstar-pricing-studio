@@ -1,0 +1,76 @@
+/*
+ * Northstar design tokens.
+ *
+ * Deliberately small: enough to keep every component consistent, not a
+ * generalized design-token framework. Colors match the values already
+ * derived from the approved wireframes (docs/wireframes/*.svg) and
+ * carried into the Streamlit implementation's theme, so this prototype
+ * and the production app speak the same visual language rather than a
+ * divergent one invented for this spike.
+ */
+
+:root {
+  /* Color */
+  --ns-color-bg: #f6f7f9;
+  --ns-color-surface: #ffffff;
+  --ns-color-sidebar: #1f2937;
+  --ns-color-sidebar-active: #344054;
+  --ns-color-sidebar-border: #374151;
+  --ns-color-sidebar-text: #d0d5dd;
+  --ns-color-sidebar-text-muted: #9aa4b2;
+
+  --ns-color-text: #18212f;
+  --ns-color-text-muted: #667085;
+  --ns-color-border: #d0d5dd;
+
+  --ns-color-primary: #2f6fed;
+  --ns-color-primary-bg: #eaf1fd;
+  --ns-color-primary-text: #2f6fed;
+
+  --ns-color-success: #247a43;
+  --ns-color-success-bg: #eaf7ef;
+
+  --ns-color-attention: #9a6700;
+  --ns-color-attention-bg: #fff7e6;
+  --ns-color-attention-border: #f2c94c;
+
+  --ns-color-error: #b42318;
+  --ns-color-error-bg: #fef3f2;
+
+  /* Spacing */
+  --ns-space-xs: 4px;
+  --ns-space-sm: 8px;
+  --ns-space-md: 16px;
+  --ns-space-lg: 24px;
+  --ns-space-xl: 32px;
+
+  /* Radius -- restrained, enterprise-oriented (never fully rounded
+     except for status pills, which use their own literal 999px). */
+  --ns-radius-sm: 6px;
+  --ns-radius-md: 9px;
+
+  /* Typography */
+  --ns-font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+
+  --ns-text-page-title-size: 2rem;
+  --ns-text-page-title-weight: 800;
+
+  --ns-text-section-heading-size: 1.05rem;
+  --ns-text-section-heading-weight: 700;
+
+  --ns-text-panel-label-size: 0.72rem;
+  --ns-text-panel-label-weight: 800;
+
+  --ns-text-body-size: 0.92rem;
+  --ns-text-body-weight: 400;
+
+  --ns-text-metadata-size: 0.82rem;
+  --ns-text-metadata-weight: 400;
+
+  --ns-text-amount-size: 2.75rem;
+  --ns-text-amount-weight: 800;
+
+  --ns-shadow-none: none;
+}
