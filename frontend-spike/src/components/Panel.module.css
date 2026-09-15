@@ -1,0 +1,15 @@
+.panel {
+  background: var(--ns-color-surface);
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-md);
+  padding: var(--ns-space-lg);
+}
+
+.label {
+  font-size: var(--ns-text-panel-label-size);
+  font-weight: var(--ns-text-panel-label-weight);
+  color: var(--ns-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--ns-space-md) 0;
+}
