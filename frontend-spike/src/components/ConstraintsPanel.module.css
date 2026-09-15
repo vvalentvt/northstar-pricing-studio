@@ -1,0 +1,94 @@
+.budgetField {
+  margin-bottom: var(--ns-space-lg);
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ns-color-text);
+  margin-bottom: 6px;
+}
+
+.budgetInputWrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  background: var(--ns-color-surface);
+  padding: 0 12px;
+  max-width: 220px;
+}
+
+.currency {
+  color: var(--ns-color-text-muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.budgetInput {
+  border: none;
+  outline: none;
+  padding: 10px 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+  width: 100%;
+  background: transparent;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ns-space-xl);
+}
+
+.groupLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+  margin: 0 0 var(--ns-space-sm) 0;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 0.86rem;
+  color: var(--ns-color-text);
+}
+
+.checkboxRow input {
+  accent-color: var(--ns-color-primary);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.checkboxRow label {
+  cursor: pointer;
+}
+
+.minUsersRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.minUsersInput {
+  width: 64px;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ns-color-text);
+}
+
+.helperText {
+  font-size: 0.78rem;
+  color: var(--ns-color-text-muted);
+  margin: 4px 0 var(--ns-space-md) 0;
+}

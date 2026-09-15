@@ -1,0 +1,69 @@
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 0;
+  font-size: 0.95rem;
+}
+
+.rowLabel {
+  color: var(--ns-color-text);
+}
+
+.rowValue {
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--ns-color-border);
+  margin: 4px 0;
+}
+
+.gapRow {
+  padding-top: 12px;
+}
+
+.gapLabel {
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.gapValue {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--ns-color-text);
+}
+
+.explanation {
+  font-size: 0.82rem;
+  color: var(--ns-color-text-muted);
+  margin: var(--ns-space-md) 0 var(--ns-space-lg) 0;
+  line-height: 1.5;
+}
+
+.actionRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primaryButton {
+  background: var(--ns-color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--ns-radius-sm);
+  padding: 11px 22px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primaryButton:hover {
+  filter: brightness(1.08);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

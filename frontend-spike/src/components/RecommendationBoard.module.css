@@ -1,0 +1,22 @@
+.section {
+  margin-top: var(--ns-space-xl);
+}
+
+.heading {
+  font-size: var(--ns-text-section-heading-size);
+  font-weight: var(--ns-text-section-heading-weight);
+  color: var(--ns-color-text);
+  margin: 0 0 4px 0;
+}
+
+.subheading {
+  font-size: 0.85rem;
+  color: var(--ns-color-text-muted);
+  margin: 0 0 var(--ns-space-md) 0;
+}
+
+.board {
+  display: flex;
+  gap: var(--ns-space-md);
+  align-items: stretch;
+}
