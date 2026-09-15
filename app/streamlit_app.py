@@ -8,11 +8,13 @@ for path in (ROOT / "src", ROOT / "app"):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from components import inject_app_styles, render_brand_header
+
 st.set_page_config(page_title="Northstar Pricing Studio", page_icon="📈", layout="wide")
+inject_app_styles()
 
 with st.sidebar:
-    st.markdown("### Northstar Pricing Studio")
-    st.caption("Commercial pricing workspace")
+    render_brand_header()
 
 pages = [
     st.Page("pages/home.py", title="Home", default=True),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Protocol
 
 import streamlit as st
@@ -25,11 +26,145 @@ from app_state import (
 )
 from quotes import ConfigurationSnapshot, Scenario
 
-_STATUS_COLORS: dict[str, str] = {
+_STATUS_TONES: dict[str, str] = {
     "DRAFT": "gray",
     "PRICED": "green",
-    "NEEDS APPROVAL": "orange",
+    "NEEDS APPROVAL": "amber",
 }
+
+_APP_STYLES = """
+<style>
+/* Northstar Pricing Studio -- scoped application shell styles.
+   Targets only elements this app emits itself (ns-* classes) and
+   Streamlit's own long-stable public hooks (data-testid attributes,
+   #MainMenu, footer) -- never auto-generated internal class names. */
+
+#MainMenu, footer, [data-testid="stAppDeployButton"] { visibility: hidden; }
+
+/* Reorder the sidebar's three native siblings (header/collapse button,
+   our own branded content, Streamlit's auto-generated page nav) so the
+   brand sits above navigation -- st.navigation always inserts its nav
+   block ahead of st.sidebar content in the DOM, so this uses ordinary
+   flex `order` on Streamlit's own stable data-testid containers rather
+   than reparenting anything. */
+[data-testid="stSidebarContent"] { display: flex; flex-direction: column; }
+[data-testid="stSidebarHeader"] { order: 0; }
+[data-testid="stSidebarUserContent"] { order: 1; }
+[data-testid="stSidebarNav"] { order: 2; }
+
+.ns-brand {
+    padding: 0.1rem 0 0.9rem 0;
+    margin-bottom: 0.6rem;
+    border-bottom: 1px solid #374151;
+}
+.ns-brand-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.03em;
+}
+.ns-brand-subtitle {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #9aa4b2;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.ns-page-title {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: #18212f;
+    line-height: 1.25;
+    margin-bottom: 2px;
+}
+.ns-context-line {
+    font-size: 0.82rem;
+    color: #667085;
+    margin-bottom: 0.6rem;
+}
+
+.ns-panel-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+}
+
+.ns-chip-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.ns-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+.ns-chip-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #667085;
+    letter-spacing: 0.04em;
+}
+.ns-chip-value { font-weight: 700; color: #18212f; }
+
+.ns-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+.ns-badge--green { background: #eaf7ef; color: #247a43; }
+.ns-badge--amber { background: #fff7e6; color: #9a6700; }
+.ns-badge--blue { background: #eaf1fd; color: #2f6fed; }
+.ns-badge--gray { background: #eef2f6; color: #667085; }
+
+.ns-attention {
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
+    font-size: 0.88rem;
+}
+.ns-attention--amber { background: #fff7e6; border: 1px solid #f2c94c; color: #8a5a00; }
+.ns-attention--info { background: #eef2f6; border: 1px solid #d0d5dd; color: #18212f; }
+.ns-attention-title { font-weight: 700; margin-bottom: 2px; }
+.ns-attention-detail { color: #667085; font-size: 0.82rem; margin-top: 4px; }
+</style>
+"""
+
+
+def inject_app_styles() -> None:
+    """Northstar's one scoped application stylesheet -- injected once from
+    the entrypoint (streamlit_app.py) so it applies to every page. Pure
+    presentation: defines only the ns-* classes this module's own
+    components emit, plus hides Streamlit's default menu/footer chrome.
+    Never touches business state.
+    """
+    st.markdown(_APP_STYLES, unsafe_allow_html=True)
+
+
+def render_brand_header(title: str = "NORTHSTAR", subtitle: str = "Pricing Studio") -> None:
+    """The compact branded sidebar header sitting above the page nav."""
+    st.markdown(
+        f'<div class="ns-brand">'
+        f'<div class="ns-brand-title">{title}</div>'
+        f'<div class="ns-brand-subtitle">{subtitle}</div>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
 
 def render_stepper(
@@ -53,8 +188,121 @@ def render_stepper(
 
 
 def render_status_badge(label: str) -> None:
-    color = _STATUS_COLORS.get(label, "gray")
-    st.markdown(f":{color}[**{label}**]")
+    """Northstar's one status-badge treatment -- a compact colored pill,
+    never a full-width banner. Same three semantic tones used everywhere
+    a status appears (Home, Review Pricing, Scenario Workspace/Comparison,
+    Budget Fit): green = within authority / priced, amber = needs
+    approval, gray = draft/neutral. Never green for "selected" or
+    "recommended" -- those stay blue, rendered separately where they
+    occur (e.g. :blue[...] markdown), since this function's palette is
+    reserved for governance/pricing-authority state only.
+    """
+    tone = _STATUS_TONES.get(label, "gray")
+    st.markdown(f'<span class="ns-badge ns-badge--{tone}">{label}</span>', unsafe_allow_html=True)
+
+
+def render_context_chips(chips: Sequence[tuple[str, str]]) -> None:
+    """A compact row of label/value chips for important contextual
+    figures (e.g. BASELINE $59,964, TARGET $45,000). Use sparingly --
+    not a chip for every piece of metadata, only where it improves
+    decision context at a glance."""
+    if not chips:
+        return
+    items = "".join(
+        f'<div class="ns-chip"><span class="ns-chip-label">{label}</span>'
+        f'<span class="ns-chip-value">{value}</span></div>'
+        for label, value in chips
+    )
+    st.markdown(f'<div class="ns-chip-row">{items}</div>', unsafe_allow_html=True)
+
+
+def render_page_header(
+    title: str,
+    context_line: str = "",
+    *,
+    status_label: str | None = None,
+    chips: Sequence[tuple[str, str]] = (),
+) -> None:
+    """Northstar's standard page header: a prominent title, one quiet
+    metadata line beneath it, and an optional right-side slot for either
+    a status badge or a row of context chips.
+
+    This is the one place quote/version/account context should be
+    established on a screen -- callers should not repeat it inside
+    unrelated panels below (see docs/DESIGN_SYSTEM.md's "shared context
+    once" principle).
+    """
+    header_col, side_col = st.columns([3, 2])
+    with header_col:
+        st.markdown(f'<div class="ns-page-title">{title}</div>', unsafe_allow_html=True)
+        if context_line:
+            st.markdown(f'<div class="ns-context-line">{context_line}</div>', unsafe_allow_html=True)
+    with side_col:
+        if status_label:
+            st.markdown(
+                '<div style="text-align:right; margin-top:0.35rem;">', unsafe_allow_html=True
+            )
+            render_status_badge(status_label)
+            st.markdown("</div>", unsafe_allow_html=True)
+        elif chips:
+            render_context_chips(chips)
+
+
+def render_panel_header(text: str) -> None:
+    """The compact uppercase section label used inside a panel (e.g.
+    PRICE BRIDGE, CONFIGURATION, CUSTOMER CONSTRAINTS) -- deliberately
+    restrained, never a full st.subheader-sized heading."""
+    st.markdown(f'<div class="ns-panel-header">{text}</div>', unsafe_allow_html=True)
+
+
+def render_action_bar(
+    *, tertiary_count: int = 0, secondary_count: int = 0, has_primary: bool = True
+):
+    """Returns Streamlit columns proportioned for Northstar's standard
+    action hierarchy: quiet tertiary/back actions first, secondary
+    actions grouped next to them, then breathing room before the primary
+    action so it reads as visually strongest -- never four equally-sized
+    buttons in a row.
+
+    Callers place their own st.button(...) calls (with type="primary" on
+    exactly one) into the returned columns and own all click handling --
+    this only fixes layout, never behavior or navigation.
+    """
+    widths = [1.3] * tertiary_count + [1.3] * secondary_count
+    if has_primary:
+        widths += [0.6, 1.6]
+    return st.columns(widths)
+
+
+def render_attention_state(
+    message: str, *, detail: str = "", tone: str = "info"
+) -> None:
+    """A compact, designed treatment for stale/empty/attention product
+    states (input/version staleness, no-fit, empty session, etc.).
+
+    tone="amber" for genuine attention (approval required, stale result);
+    tone="info" for neutral informational states. Never used for
+    blocking validation errors -- those stay on Streamlit's native
+    st.error (red is reserved for true blocking failures, never routed
+    through this helper).
+    """
+    detail_html = f'<div class="ns-attention-detail">{detail}</div>' if detail else ""
+    st.markdown(
+        f'<div class="ns-attention ns-attention--{tone}">'
+        f'<div class="ns-attention-title">{message}</div>'
+        f"{detail_html}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def render_empty_state(message: str, *, detail: str = "") -> None:
+    """A designed treatment for "nothing here yet" states (no active
+    quote, no saved alternatives, ...). Always the neutral/info tone --
+    an empty state is not an attention-worthy problem, so it's kept as a
+    distinct, narrower function rather than exposing tone= for callers to
+    pick incorrectly."""
+    render_attention_state(message, detail=detail, tone="info")
 
 
 class _ConfigurationLike(Protocol):
@@ -118,7 +366,7 @@ def render_approval_callout(review: ReviewPricingState) -> None:
 
 
 def render_price_bridge(review: ReviewPricingState) -> None:
-    st.subheader("Price bridge")
+    render_panel_header("PRICE BRIDGE")
 
     def _row(label: str, amount_text: str, *, bold: bool = False) -> None:
         left, right = st.columns([3, 1])
@@ -146,13 +394,13 @@ def render_price_bridge(review: ReviewPricingState) -> None:
 def render_why_this_price(review: ReviewPricingState) -> None:
     if not review.adjustments:
         return
-    st.subheader("Why this price")
+    render_panel_header("WHY THIS PRICE")
     for adjustment in review.adjustments:
         st.write(f"• {adjustment.explanation}")
 
 
 def render_configuration_summary(review: ReviewPricingState) -> None:
-    st.subheader("Configuration")
+    render_panel_header("CONFIGURATION")
     render_configuration_bullets(review.configuration)
 
 
@@ -291,9 +539,9 @@ def render_budget_fit_baseline_summary(
     configuration: ConfigurationSnapshot, current_price: float
 ) -> None:
     """The compact "what we are trying to preserve" card -- never visually
-    competes with the Budget Fit form; a plain subheader + metric + the
+    competes with the Budget Fit form; a panel header + metric + the
     same configuration bullets used elsewhere."""
-    st.subheader("Current Quote")
+    render_panel_header("CURRENT QUOTE")
     st.metric("Current final price", format_money(current_price))
     render_configuration_bullets(configuration)
 
