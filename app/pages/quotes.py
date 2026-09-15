@@ -73,7 +73,9 @@ from app_state import (
     validate_deal_context,
 )
 from components import (
+    render_action_bar,
     render_approval_callout,
+    render_attention_state,
     render_budget_fit_baseline_fits,
     render_budget_fit_baseline_summary,
     render_budget_fit_comparison,
@@ -81,6 +83,9 @@ from components import (
     render_budget_fit_results_header,
     render_configuration_bullets,
     render_configuration_summary,
+    render_empty_state,
+    render_page_header,
+    render_panel_header,
     render_price_bridge,
     render_price_card,
     render_rule_metadata,
@@ -324,9 +329,12 @@ def render_configure(rules: dict) -> None:
 def render_review_pricing(rules: dict) -> None:
     quote = get_current_quote()
     if quote is None:
-        st.title("Review Pricing")
+        render_page_header("Review Pricing")
         render_stepper(WorkflowStep.REVIEW_PRICING)
-        st.warning("Calculate a quote and proceed from Configure before reviewing pricing.")
+        render_empty_state(
+            "No quote calculated yet.",
+            detail="Calculate a quote and proceed from Configure before reviewing pricing.",
+        )
         if st.button("← Back to Configure"):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
@@ -351,47 +359,54 @@ def render_review_pricing(rules: dict) -> None:
     review = build_review_pricing(quote)
     deal_context = get_deal_context()
 
-    header_col, badge_col = st.columns([5, 1])
-    with header_col:
-        st.title(deal_context.customer_name if deal_context else quote.customer_name)
-        meta_parts = [f"Quote {review.quote_id}"]
-        if deal_context is not None:
-            meta_parts.append(DEAL_TYPE_LABELS[deal_context.deal_type])
-            if deal_context.opportunity_reference:
-                meta_parts.append(deal_context.opportunity_reference)
-        meta_parts.append(f"Pricing version v{review.version_number}")
-        meta_parts.append(f"Rule v{review.rule_version}")
-        st.caption(" • ".join(meta_parts))
-    with badge_col:
-        render_status_badge(review.status_label)
+    meta_parts = [f"Quote {review.quote_id}"]
+    if deal_context is not None:
+        meta_parts.append(DEAL_TYPE_LABELS[deal_context.deal_type])
+        if deal_context.opportunity_reference:
+            meta_parts.append(deal_context.opportunity_reference)
+    meta_parts.append(f"Pricing version v{review.version_number}")
+    meta_parts.append(f"Rule v{review.rule_version}")
+
+    render_page_header(
+        deal_context.customer_name if deal_context else quote.customer_name,
+        " • ".join(meta_parts),
+        status_label=review.status_label,
+    )
 
     render_stepper(
         WorkflowStep.REVIEW_PRICING,
         locked_steps=(WorkflowStep.PROPOSAL,) if review.approval_required else (),
     )
 
-    if review.approval_required:
-        render_approval_callout(review)
-    else:
-        render_price_card(review)
+    with st.container(border=True):
+        if review.approval_required:
+            render_approval_callout(review)
+        else:
+            render_price_card(review)
 
     bridge_col, config_col = st.columns([2, 1])
     with bridge_col:
-        render_price_bridge(review)
+        with st.container(border=True):
+            render_price_bridge(review)
     with config_col:
-        render_configuration_summary(review)
+        with st.container(border=True):
+            render_configuration_summary(review)
 
-    render_why_this_price(review)
+    if review.adjustments:
+        with st.container(border=True):
+            render_why_this_price(review)
     render_rule_metadata(review)
 
     st.divider()
-    action_col1, action_col2, action_col3, action_col4 = st.columns(4)
-    with action_col1:
+    edit_col, explore_col, budget_col, _spacer, primary_col = render_action_bar(
+        tertiary_count=1, secondary_count=2
+    )
+    with edit_col:
         edit_label = "Revise Configuration" if review.approval_required else "Edit Configuration"
         if st.button(edit_label):
             set_workflow_step(WorkflowStep.CONFIGURE)
             st.rerun()
-    with action_col2:
+    with explore_col:
         # Available regardless of approval state -- scope/term changes may
         # be preferable to a larger discount for approval-required pricing.
         if st.button("Explore Alternatives"):
@@ -402,13 +417,13 @@ def render_review_pricing(rules: dict) -> None:
                 set_scenario_draft_pricing_state(None)
             set_exploring_alternatives(True)
             st.rerun()
-    with action_col3:
+    with budget_col:
         # A second, distinct negotiation branch off Review Pricing -- not a
         # step toward Proposal. See render_budget_fit.
         if st.button("Fit to Budget"):
             set_fitting_budget(True)
             st.rerun()
-    with action_col4:
+    with primary_col:
         if review.proposal_available:
             if st.button("Continue to Proposal →", type="primary"):
                 set_workflow_step(WorkflowStep.PROPOSAL)
@@ -747,37 +762,51 @@ def render_budget_fit(quote: Quote, rules: dict) -> None:
     deal_context = get_deal_context()
     customer_name = deal_context.customer_name if deal_context else quote.customer_name
     budget_fit_state = get_budget_fit_state()
+    current_price = quote.current_version.pricing_snapshot.final_price
+    is_stale_version = budget_fit_version_is_stale(budget_fit_state, quote)
 
-    st.title("Fit to Budget")
-    st.caption(customer_name)
-    st.caption(f"Quote {quote.quote_id} • Based on pricing version v{quote.current_version.version_number}")
+    # Shared context: baseline is always known; target only once a live,
+    # non-stale Budget Fit result exists (a stale target would be
+    # misleading right where the attention state below explains why).
+    chips = [("BASELINE", format_money(current_price))]
+    if budget_fit_state is not None and not is_stale_version:
+        chips.append(("TARGET", format_money(budget_fit_state.result.target_budget)))
+
+    render_page_header(
+        "Fit to Budget",
+        f"{customer_name} • Quote {quote.quote_id} • based on v{quote.current_version.version_number}",
+        chips=chips,
+    )
     render_stepper(WorkflowStep.REVIEW_PRICING)
     st.write(
         "Find the strongest version of this quote that fits the customer's "
         "budget while preserving their required capabilities."
     )
 
-    if budget_fit_version_is_stale(budget_fit_state, quote):
-        st.warning("This quote has changed since Budget Fit was run.")
-        st.caption(
-            f"These recommendations were based on pricing version "
-            f"v{budget_fit_state.source_version_number}. The current quote is "
-            f"pricing version v{quote.current_version.version_number}."
+    if is_stale_version:
+        render_attention_state(
+            "This quote has changed since Budget Fit was run.",
+            detail=(
+                f"These recommendations were based on pricing version "
+                f"v{budget_fit_state.source_version_number}. The current quote is "
+                f"pricing version v{quote.current_version.version_number}. "
+                "Run Budget Fit again from the current quote."
+            ),
+            tone="amber",
         )
-        st.caption("Run Budget Fit again from the current quote.")
         if st.button("← Back to Review Pricing"):
             clear_budget_fit_state()
             st.rerun()
         return
 
     baseline = quote.current_version.configuration_snapshot
-    current_price = quote.current_version.pricing_snapshot.final_price
     form_key = f"{quote.quote_id}_v{quote.current_version.version_number}"
 
     baseline_col, form_col = st.columns([1, 2])
 
     with baseline_col:
-        render_budget_fit_baseline_summary(baseline, current_price)
+        with st.container(border=True):
+            render_budget_fit_baseline_summary(baseline, current_price)
 
     with form_col:
         st.subheader("Customer target budget")
