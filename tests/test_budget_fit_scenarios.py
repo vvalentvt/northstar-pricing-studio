@@ -584,8 +584,9 @@ def test_budget_fit_scenario_smoke_flow_full_lifecycle():
     # v1 is untouched.
     assert quote.versions[0].configuration_snapshot.tier == "enterprise"
 
-    # Review Pricing naturally reflects the new current version.
-    review_text = " ".join(c.value for c in at.caption)
+    # Review Pricing naturally reflects the new current version (the page
+    # header's context line, styled via markdown, not st.caption).
+    review_text = " ".join(m.value for m in at.markdown)
     assert "Pricing version v2" in review_text
 
 
@@ -708,7 +709,8 @@ def test_budget_fit_scenario_smoke_flow_stale_version_blocks_add():
     at.run()
     assert not at.exception
 
-    warning_text = " ".join(w.value for w in at.warning)
-    assert "changed since Budget Fit was run" in warning_text
+    # Stale-version attention state is styled via markdown, not st.warning.
+    markdown_text = " ".join(m.value for m in at.markdown)
+    assert "changed since Budget Fit was run" in markdown_text
     assert not [b for b in at.button if b.label == "Add to Alternatives"]
     assert len(quote.versions) == versions_before + 1  # only the independent advance

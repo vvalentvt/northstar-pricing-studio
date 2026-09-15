@@ -438,9 +438,10 @@ def test_budget_fit_ui_smoke_flow_renders_recommendations():
     markdown_text = " ".join(m.value for m in at.markdown)
     caption_text = " ".join(c.value for c in at.caption)
 
-    # Baseline quote context and source pricing version are visible.
+    # Baseline quote context and source pricing version are visible (the
+    # page header's context line, styled via markdown, not st.caption).
     assert "Enterprise" in markdown_text
-    assert f"Based on pricing version v{quote.current_version.version_number}" in caption_text
+    assert f"based on v{quote.current_version.version_number}" in markdown_text
 
     # Recommendation #1 is visibly recommended; every price is within budget.
     assert ":blue[**RECOMMENDED**]" in markdown_text
@@ -467,9 +468,12 @@ def test_budget_fit_ui_smoke_flow_renders_recommendations():
     ]
     assert actual_capability == expected_capability
 
-    # Approval states render in rank order and match the engine exactly.
+    # Approval states render in rank order and match the engine exactly
+    # (status badges are HTML pills -- see render_status_badge).
     expected_approval = [
-        ":orange[**NEEDS APPROVAL**]" if rec.pricing_snapshot.approval_required else ":green[**PRICED**]"
+        '<span class="ns-badge ns-badge--amber">NEEDS APPROVAL</span>'
+        if rec.pricing_snapshot.approval_required
+        else '<span class="ns-badge ns-badge--green">PRICED</span>'
         for rec in view_state.result.recommendations
     ]
     actual_approval = [m.value for m in at.markdown if "PRICED" in m.value or "NEEDS APPROVAL" in m.value]
