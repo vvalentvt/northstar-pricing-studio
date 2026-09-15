@@ -74,7 +74,6 @@ from app_state import (
 )
 from components import (
     render_action_bar,
-    render_approval_callout,
     render_attention_state,
     render_budget_fit_baseline_fits,
     render_budget_fit_baseline_summary,
@@ -87,7 +86,7 @@ from components import (
     render_page_header,
     render_panel_header,
     render_price_bridge,
-    render_price_card,
+    render_price_hero,
     render_rule_metadata,
     render_saved_scenarios,
     render_scenario_comparison_table,
@@ -379,22 +378,23 @@ def render_review_pricing(rules: dict) -> None:
     )
 
     with st.container(border=True):
-        if review.approval_required:
-            render_approval_callout(review)
-        else:
-            render_price_card(review)
+        render_price_hero(review)
 
     bridge_col, config_col = st.columns([2, 1])
     with bridge_col:
         with st.container(border=True):
             render_price_bridge(review)
+        # Why This Price stays the Price Bridge's own width rather than
+        # spanning the full content width -- its content is a handful of
+        # short lines, and a full-width box around that reads as an
+        # empty box, not a designed panel.
+        if review.adjustments:
+            with st.container(border=True):
+                render_why_this_price(review)
     with config_col:
         with st.container(border=True):
             render_configuration_summary(review)
 
-    if review.adjustments:
-        with st.container(border=True):
-            render_why_this_price(review)
     render_rule_metadata(review)
 
     st.divider()

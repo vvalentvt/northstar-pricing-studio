@@ -36,88 +36,129 @@ _APP_STYLES = """
 <style>
 /* Northstar Pricing Studio -- scoped application shell styles.
    Targets only elements this app emits itself (ns-* classes) and
-   Streamlit's own long-stable public hooks (data-testid attributes,
-   #MainMenu, footer) -- never auto-generated internal class names. */
+   Streamlit's own long-stable public hooks: data-testid attributes,
+   #MainMenu/footer, and the aria-current attribute the nav itself sets
+   on the active link -- never auto-generated internal class names
+   (the "st-emotion-cache-xxxx" classes Streamlit's CSS-in-JS emits are
+   deliberately never selected here, since those hashes are not stable
+   across versions).
+
+   Documented data-testid dependencies (all part of Streamlit's public,
+   intentional styling-hook surface, not internal implementation
+   classes): stAppDeployButton, stSidebarContent/-Header/-UserContent/
+   -Nav/-NavLink, stMainBlockContainer, stMetricValue/-Label. */
 
 #MainMenu, footer, [data-testid="stAppDeployButton"] { visibility: hidden; }
 
-/* Reorder the sidebar's three native siblings (header/collapse button,
-   our own branded content, Streamlit's auto-generated page nav) so the
-   brand sits above navigation -- st.navigation always inserts its nav
-   block ahead of st.sidebar content in the DOM, so this uses ordinary
-   flex `order` on Streamlit's own stable data-testid containers rather
-   than reparenting anything. */
+/* -- Content canvas: a bounded, centered desktop workspace instead of
+   text stretching indefinitely across ultrawide monitors. 1320px keeps
+   two-column panels (Price Bridge + Configuration) comfortably dense
+   without becoming a narrow document column. Default top padding
+   (~96px) reads as dead air above the page title; tightened to a
+   deliberate but modest gap. */
+[data-testid="stMainBlockContainer"] {
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 2.25rem;
+}
+
+/* -- Sidebar: reorder the three native siblings (header/collapse
+   button, our own branded content, Streamlit's auto-generated page
+   nav) so the brand sits above navigation -- st.navigation always
+   inserts its nav block ahead of st.sidebar content in the DOM, so
+   this uses ordinary flex `order` on Streamlit's own stable
+   data-testid containers rather than reparenting anything. */
 [data-testid="stSidebarContent"] { display: flex; flex-direction: column; }
 [data-testid="stSidebarHeader"] { order: 0; }
-[data-testid="stSidebarUserContent"] { order: 1; }
-[data-testid="stSidebarNav"] { order: 2; }
+[data-testid="stSidebarUserContent"] { order: 1; padding-top: 0.4rem; }
+[data-testid="stSidebarNav"] { order: 2; padding-top: 0.4rem; }
 
 .ns-brand {
-    padding: 0.1rem 0 0.9rem 0;
-    margin-bottom: 0.6rem;
+    padding: 0.3rem 0 1.1rem 0;
+    margin-bottom: 0.4rem;
     border-bottom: 1px solid #374151;
 }
 .ns-brand-title {
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: 1.3rem;
+    font-weight: 800;
     color: #ffffff;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
+    line-height: 1.15;
 }
 .ns-brand-subtitle {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #9aa4b2;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    margin-top: 2px;
+    margin-top: 3px;
 }
 
+/* Native nav links: more breathing room per item and a clearer active
+   state than the default thin, tightly-packed list. aria-current is
+   the nav's own semantic marker for "this is the active page" -- a
+   stable public attribute, not a generated class. */
+[data-testid="stSidebarNavLink"] {
+    padding: 0.55rem 0.7rem !important;
+    margin: 0.1rem 0;
+    border-radius: 0.4rem;
+    font-size: 0.92rem !important;
+}
+[data-testid="stSidebarNavLink"][aria-current="page"] {
+    font-weight: 700 !important;
+}
+
+/* -- Typography hierarchy (page title down to metadata). Native
+   Streamlit heading sizes are too uniform for a decision workspace, so
+   the levels this app actually needs are defined explicitly. */
 .ns-page-title {
-    font-size: 1.7rem;
-    font-weight: 700;
+    font-size: 2rem;
+    font-weight: 800;
     color: #18212f;
-    line-height: 1.25;
-    margin-bottom: 2px;
+    line-height: 1.2;
+    margin-bottom: 3px;
+    letter-spacing: -0.01em;
 }
 .ns-context-line {
-    font-size: 0.82rem;
+    font-size: 0.86rem;
     color: #667085;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.7rem;
 }
 
 .ns-panel-header {
-    font-size: 0.72rem;
-    font-weight: 700;
+    font-size: 0.74rem;
+    font-weight: 800;
     color: #667085;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.5rem;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
 }
 
 .ns-chip-row {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.6rem;
     flex-wrap: wrap;
     justify-content: flex-end;
 }
 .ns-chip {
     display: inline-flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 7px;
     background: #ffffff;
     border: 1px solid #d0d5dd;
     border-radius: 6px;
-    padding: 5px 12px;
-    font-size: 0.8rem;
+    padding: 7px 14px;
+    font-size: 0.85rem;
     white-space: nowrap;
 }
 .ns-chip-label {
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: #667085;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
 }
-.ns-chip-value { font-weight: 700; color: #18212f; }
+.ns-chip-value { font-weight: 800; color: #18212f; font-size: 0.95rem; }
 
 .ns-badge {
     display: inline-block;
@@ -142,6 +183,66 @@ _APP_STYLES = """
 .ns-attention--info { background: #eef2f6; border: 1px solid #d0d5dd; color: #18212f; }
 .ns-attention-title { font-weight: 700; margin-bottom: 2px; }
 .ns-attention-detail { color: #667085; font-size: 0.82rem; margin-top: 4px; }
+
+/* -- Price hero: the primary decision anchor (Review Pricing's final
+   price + authority state). Custom markup rather than stacked
+   st.metric blocks, so price/status/supporting figures form one tight
+   composition instead of three full-width metric rows. */
+.ns-price-hero-label {
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+}
+.ns-price-hero-row {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+.ns-price-hero-value {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #18212f;
+    line-height: 1;
+    letter-spacing: -0.01em;
+}
+.ns-hero-reason {
+    margin-top: 10px;
+    font-size: 0.94rem;
+    color: #18212f;
+}
+
+/* -- Compact field label/value pairs (e.g. Requested discount 0%,
+   Self-service authority 10%) -- a row of small facts, not full-width
+   st.metric blocks each with their own generous internal padding. */
+.ns-field-row {
+    display: flex;
+    gap: 2.5rem;
+    margin-top: 1.1rem;
+    flex-wrap: wrap;
+}
+.ns-field { display: flex; flex-direction: column; gap: 2px; }
+.ns-field-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #667085;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.ns-field-value { font-size: 1.15rem; font-weight: 700; color: #18212f; }
+
+/* Remaining native st.metric usages (e.g. Fit to Budget's baseline
+   price) pick up the same label/value contrast for consistency. */
+[data-testid="stMetricLabel"] p {
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    color: #667085 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
 </style>
 """
 
@@ -232,7 +333,7 @@ def render_page_header(
     unrelated panels below (see docs/DESIGN_SYSTEM.md's "shared context
     once" principle).
     """
-    header_col, side_col = st.columns([3, 2])
+    header_col, side_col = st.columns([2.3, 1.4])
     with header_col:
         st.markdown(f'<div class="ns-page-title">{title}</div>', unsafe_allow_html=True)
         if context_line:
@@ -253,6 +354,22 @@ def render_panel_header(text: str) -> None:
     PRICE BRIDGE, CONFIGURATION, CUSTOMER CONSTRAINTS) -- deliberately
     restrained, never a full st.subheader-sized heading."""
     st.markdown(f'<div class="ns-panel-header">{text}</div>', unsafe_allow_html=True)
+
+
+def render_field_row(fields: Sequence[tuple[str, str]]) -> None:
+    """A compact row of small label/value facts (e.g. Requested discount
+    0%, Self-service authority 10%) -- the FIELD LABEL / FIELD VALUE
+    typography level. Deliberately not st.metric: metric's generous
+    per-field padding is right for a single primary number, but wrong
+    for several supporting facts that should read as one tight row."""
+    if not fields:
+        return
+    items = "".join(
+        f'<div class="ns-field"><div class="ns-field-label">{label}</div>'
+        f'<div class="ns-field-value">{value}</div></div>'
+        for label, value in fields
+    )
+    st.markdown(f'<div class="ns-field-row">{items}</div>', unsafe_allow_html=True)
 
 
 def render_action_bar(
@@ -339,30 +456,45 @@ def _right(text: str) -> str:
     return f"<div style='text-align:right'>{text}</div>"
 
 
-def render_price_card(review: ReviewPricingState) -> None:
-    """Within-authority decision header.
+def render_price_hero(review: ReviewPricingState) -> None:
+    """Review Pricing's primary decision anchor: final price and
+    authority state as one tight composition (large price, status pill
+    inline beside it, reason text if any, then a compact field row of
+    supporting figures) -- not three stacked full-width st.metric blocks.
 
-    Deliberately mirrors render_approval_callout's structure -- final
-    price first, then the authority state, then supporting figures -- so
-    the two decision states read as parallel outcomes, not different UIs.
+    Covers both outcomes (within authority / needs approval) in one
+    function so they read as parallel variants of the same layout,
+    never two different UIs.
     """
-    st.metric("Final price", format_money(review.final_price))
-    st.success("Within self-service pricing authority.")
-    c1, c2 = st.columns(2)
-    c1.metric("Requested discount", f"{review.requested_discount_percent:.0f}%")
-    c2.metric("Self-service authority", f"{review.self_service_threshold_percent:.0f}%")
+    if review.approval_required:
+        badge = '<span class="ns-badge ns-badge--amber">Needs approval</span>'
+    else:
+        badge = '<span class="ns-badge ns-badge--green">Within authority</span>'
 
+    st.markdown(
+        '<div class="ns-price-hero-label">FINAL PRICE</div>'
+        f'<div class="ns-price-hero-row">'
+        f'<span class="ns-price-hero-value">{format_money(review.final_price)}</span>'
+        f"{badge}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
-def render_approval_callout(review: ReviewPricingState) -> None:
-    """Approval-required decision header -- see render_price_card."""
-    st.metric("Final price", format_money(review.final_price))
-    st.warning("**Approval required**")
-    if review.approval_reason:
-        st.write(review.approval_reason)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Requested discount", f"{review.requested_discount_percent:.0f}%")
-    c2.metric("Self-service limit", f"{review.self_service_threshold_percent:.0f}%")
-    c3.metric("Discount impact", format_money(-review.discount_amount, signed=True))
+    if review.approval_required and review.approval_reason:
+        st.markdown(f'<div class="ns-hero-reason">{review.approval_reason}</div>', unsafe_allow_html=True)
+
+    if review.approval_required:
+        fields = [
+            ("Requested discount", f"{review.requested_discount_percent:.0f}%"),
+            ("Self-service limit", f"{review.self_service_threshold_percent:.0f}%"),
+            ("Discount impact", format_money(-review.discount_amount, signed=True)),
+        ]
+    else:
+        fields = [
+            ("Requested discount", f"{review.requested_discount_percent:.0f}%"),
+            ("Self-service authority", f"{review.self_service_threshold_percent:.0f}%"),
+        ]
+    render_field_row(fields)
 
 
 def render_price_bridge(review: ReviewPricingState) -> None:

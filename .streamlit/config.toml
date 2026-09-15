@@ -19,6 +19,8 @@ blueTextColor = "#2f6fed"
 grayColor = "#667085"
 grayBackgroundColor = "#eef2f6"
 grayTextColor = "#667085"
+metricValueFontSize = "2.1rem"
+metricValueFontWeight = 700
 
 [theme.sidebar]
 backgroundColor = "#1f2937"
