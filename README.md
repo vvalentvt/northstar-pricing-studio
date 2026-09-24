@@ -159,10 +159,12 @@ Streamlit (app/)  ---> app/app_state.py ---> src/pricing_engine, src/quotes, src
 React (frontend/) ---> FastAPI (api/)   ---> src/pricing_engine, src/quotes, src/budget_fit
 ```
 
-- `app/` — the original, complete Streamlit application (Deal Setup through Review Pricing, Scenario negotiation, Budget Fit, Budget Fit → Scenario → QuoteVersion promotion). Still the only complete workflow.
-- `frontend/` + `api/` — one migrated screen so far: **Optimize to Budget**, calling a real `POST /api/budget-fit` endpoint that runs the actual optimizer (`src/budget_fit.find_budget_fit`). Stateless: the client supplies the baseline configuration directly, since there is no durable quote resource yet.
+- `app/` — the original, complete Streamlit application (Deal Setup through Review Pricing, Scenario negotiation, Budget Fit, Budget Fit → Scenario → QuoteVersion promotion). Still the only complete workflow, and still entirely `st.session_state`-backed — it has **not** been migrated to SQLite.
+- `frontend/` + `api/` — one migrated screen so far: **Optimize to Budget**, calling a real `POST /api/budget-fit` endpoint that runs the actual optimizer (`src/budget_fit.find_budget_fit`). Stateless: the client supplies the baseline configuration directly.
 
-Neither `src/pricing_engine`, `src/quotes`, nor `src/budget_fit` has a second implementation for the API — both presentation layers call the same domain functions.
+Neither `src/pricing_engine`, `src/quotes`, nor `src/budget_fit` has a second implementation for the API — both presentation layers call the same domain functions, including the shared quote-creation orchestration in `src/application/quotes.py`.
+
+**Durable Quote persistence (Phase 6B).** The API now has its own durable Quote resource: `POST /api/quotes`, `GET /api/quotes/{quoteId}`, and `GET /api/quotes/{quoteId}/versions/{versionNumber}`, backed by SQLite (`src/persistence`, see [ADR-004](docs/adr/004-quote-persistence.md)). This is **not** the same Quote store Streamlit uses — a quote created through the API is not visible in Streamlit and vice versa; the two presentation layers' Quote histories are independent and unsynchronized during this migration. Scenario negotiation, Budget Fit view state, and the React Review Pricing screen are not part of this phase.
 
 ## Local setup
 
@@ -224,5 +226,5 @@ cd frontend && npm run build     # TypeScript typecheck + production build
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — UI and interaction conventions
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — target solution architecture and domain model
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — staged implementation roadmap
-- [`docs/adr/`](docs/adr/) — architecture decision records, including [ADR-003](docs/adr/003-frontend-api-separation.md) on the frontend/API migration
+- [`docs/adr/`](docs/adr/) — architecture decision records, including [ADR-003](docs/adr/003-frontend-api-separation.md) on the frontend/API migration and [ADR-004](docs/adr/004-quote-persistence.md) on Quote persistence
 - [`docs/FRONTEND_SPIKE.md`](docs/FRONTEND_SPIKE.md) — the visual feasibility spike that motivated the migration

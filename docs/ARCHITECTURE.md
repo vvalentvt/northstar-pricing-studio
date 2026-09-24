@@ -484,22 +484,28 @@ The ProposalAssembler may allow editable customer-facing narrative, but approved
 
 ## 11. Persistence strategy
 
-Persistence is intentionally deferred until the domain model is stable.
-
-A lightweight relational database such as SQLite or DuckDB is sufficient for the portfolio scope.
-
-Potential tables:
+**Implemented (Phase 6B, API only — see [ADR-004](adr/004-quote-persistence.md)):** the Quote resource is durable behind the API, via a `QuoteRepository` protocol (`src/persistence/quote_repository.py`) implemented with SQLite (`src/persistence/sqlite_quote_repository.py`, stdlib `sqlite3`, no ORM):
 
 ```text
-quotes
-quote_versions
-pricing_snapshots
+quotes           -- one row per Quote (quote_id, customer_name, owner, status, created_at)
+quote_versions   -- one row per QuoteVersion (composite PK: quote_id, version_number; FK to quotes)
+                    configuration/pricing/negotiation-context snapshots stored as JSON text
+                    via each frozen Pydantic model's own model_dump_json()/model_validate_json()
+```
+
+Rows are never updated — `quote_versions` is append-only, matching the domain's own immutable `QuoteVersion` history. This is deliberately **not** a single mutable JSON blob per quote: the two-table shape mirrors the domain's actual one-Quote-to-many-QuoteVersions relationship.
+
+This is scoped to the API path only. Streamlit (`app/`) remains entirely `st.session_state`-backed and has not been migrated; the two Quote stores are independent during the ongoing frontend migration (ADR-003).
+
+**Still deferred:**
+
+```text
 scenarios        [optional if transient scenarios need persistence]
 approvals
 proposals
 ```
 
-Pricing adjustments/explanations can initially be stored as structured JSON if normalized tables do not add portfolio value.
+Pricing adjustments/explanations are stored as structured JSON within the `pricing_snapshot` column rather than further-normalized tables — sufficient for portfolio scope, and consistent with treating the domain model (not the schema) as the source of truth for what a valid snapshot looks like.
 
 ---
 
