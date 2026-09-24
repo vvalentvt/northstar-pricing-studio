@@ -101,3 +101,87 @@ class ErrorResponseDto(BaseModel):
     """The one predictable error shape for 4xx/5xx responses."""
 
     detail: str
+
+
+class CreateQuoteRequestDto(BaseModel):
+    """POST /api/quotes request body.
+
+    Deliberately carries no pricing fields: the server always calculates
+    v1 itself via the canonical pricing engine (see
+    api/routers/quotes.py) -- a client can never supply its own
+    PricingSnapshot and invent a committed price.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    customer_name: str = Field(alias="customerName", min_length=1)
+    owner: str = Field(min_length=1)
+    configuration: ConfigurationDto
+
+
+class AdjustmentDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    amount: float
+    explanation: str
+
+
+class PricingSnapshotDto(BaseModel):
+    """Wire shape of a persisted PricingSnapshot -- the full economics of
+    one QuoteVersion, never recomputed from current rules on read."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    rule_version: str = Field(alias="ruleVersion")
+    base_price: float = Field(alias="basePrice")
+    adjustments: list[AdjustmentDto]
+    subtotal_before_discount: float = Field(alias="subtotalBeforeDiscount")
+    discount_amount: float = Field(alias="discountAmount")
+    final_price: float = Field(alias="finalPrice")
+    approval_required: bool = Field(alias="approvalRequired")
+    approval_reason: str | None = Field(default=None, alias="approvalReason")
+    self_service_threshold_percent: float = Field(alias="selfServiceThresholdPercent")
+    max_allowed_discount_percent: float = Field(alias="maxAllowedDiscountPercent")
+    calculated_at: str = Field(alias="calculatedAt")
+
+
+class QuoteVersionResponseDto(BaseModel):
+    """Full detail for a single QuoteVersion -- used for the current
+    version embedded in QuoteResponseDto and for GET .../versions/{n}."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    version_number: int = Field(alias="versionNumber")
+    source: str
+    created_at: str = Field(alias="createdAt")
+    configuration: ConfigurationDto
+    pricing: PricingSnapshotDto
+
+
+class QuoteVersionSummaryDto(BaseModel):
+    """Compact summary of a historical version -- enough to render a
+    version-history list without shipping every full snapshot."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    version_number: int = Field(alias="versionNumber")
+    source: str
+    created_at: str = Field(alias="createdAt")
+    final_price: float = Field(alias="finalPrice")
+    approval_required: bool = Field(alias="approvalRequired")
+
+
+class QuoteResponseDto(BaseModel):
+    """GET /api/quotes/{quoteId} response: full current version detail
+    plus compact summaries of prior versions."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    quote_id: str = Field(alias="quoteId")
+    customer_name: str = Field(alias="customerName")
+    owner: str
+    status: str
+    created_at: str = Field(alias="createdAt")
+    current_version: QuoteVersionResponseDto = Field(alias="currentVersion")
+    version_history: list[QuoteVersionSummaryDto] = Field(alias="versionHistory")

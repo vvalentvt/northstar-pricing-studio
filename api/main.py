@@ -12,6 +12,7 @@ exists alongside the Streamlit app rather than replacing it.
 from __future__ import annotations
 
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,12 +23,27 @@ for path in (ROOT, ROOT / "src"):
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from persistence import SQLiteQuoteRepository
+
+from api.dependencies import resolve_db_path
 from api.routers.budget_fit import router as budget_fit_router
+from api.routers.quotes import router as quotes_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # SQLiteQuoteRepository.__init__ runs the idempotent CREATE TABLE IF
+    # NOT EXISTS schema init -- one repository instance, opened once at
+    # startup and reused for the process lifetime, not per-request.
+    app.state.quote_repository = SQLiteQuoteRepository(resolve_db_path())
+    yield
+
 
 app = FastAPI(
     title="Northstar Pricing Studio API",
     description="Typed HTTP boundary in front of the existing Python pricing/quote/Budget Fit domain.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Local development only -- the Vite dev server's origin. No wildcard,
@@ -41,6 +57,7 @@ app.add_middleware(
 )
 
 app.include_router(budget_fit_router)
+app.include_router(quotes_router)
 
 
 @app.get("/api/health")
