@@ -11,8 +11,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from uuid import uuid4
 
+from application.quotes import create_quote as _create_quote
+from application.quotes import generate_quote_id as _generate_quote_id
 from budget_fit import (
     BudgetFitConstraints,
     BudgetFitField,
@@ -180,7 +181,7 @@ def derive_status_label(quote: Quote | None) -> str:
 
 
 def generate_quote_id() -> str:
-    return f"Q-{uuid4().int % 100000:05d}"
+    return _generate_quote_id()
 
 
 def create_quote(
@@ -190,18 +191,20 @@ def create_quote(
 ) -> Quote:
     """Build the durable in-memory Quote from a calculated configuration.
 
-    Reuses Quote.create and PricingSnapshot.from_pricing_result directly;
-    no pricing or version logic is reimplemented here. Not called directly
-    by the UI -- see commit_quote, the one place this is invoked.
+    Delegates to src/application/quotes.py -- the same presentation-
+    neutral quote-commit algorithm the API (api/) uses, so Streamlit and
+    FastAPI never carry two implementations of "how a Quote gets
+    created." This function only translates Streamlit's own draft
+    shapes (DealContext, ConfigurationInput) into the plain
+    QuoteRequest the shared function takes. Not called directly by the
+    UI -- see commit_quote, the one place this is invoked.
     """
     request = configuration_to_quote_request(deal_context.customer_name, configuration)
-    pricing_snapshot = PricingSnapshot.from_pricing_result(result)
-    return Quote.create(
-        quote_id=generate_quote_id(),
+    return _create_quote(
         customer_name=deal_context.customer_name,
         owner=DEFAULT_OWNER,
         configuration=request,
-        pricing_snapshot=pricing_snapshot,
+        result=result,
     )
 
 
