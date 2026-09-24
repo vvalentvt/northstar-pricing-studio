@@ -1,0 +1,29 @@
+.badge {
+  display: inline-block;
+  padding: 4px 13px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.green {
+  background: var(--ns-color-success-bg);
+  color: var(--ns-color-success);
+}
+
+.amber {
+  background: var(--ns-color-attention-bg);
+  color: var(--ns-color-attention);
+}
+
+.blue {
+  background: var(--ns-color-primary-bg);
+  color: var(--ns-color-primary-text);
+}
+
+.gray {
+  background: var(--ns-color-bg);
+  color: var(--ns-color-text-muted);
+}

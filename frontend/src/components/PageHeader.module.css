@@ -1,0 +1,59 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ns-space-lg);
+  margin-bottom: var(--ns-space-lg);
+}
+
+.titleBlock {
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--ns-text-page-title-size);
+  font-weight: var(--ns-text-page-title-weight);
+  color: var(--ns-color-text);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin: 0 0 3px 0;
+}
+
+.context {
+  font-size: var(--ns-text-metadata-size);
+  color: var(--ns-color-text-muted);
+  margin: 0;
+}
+
+.chipRow {
+  display: flex;
+  gap: var(--ns-space-sm);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  background: var(--ns-color-surface);
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.chipLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ns-color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.chipValue {
+  font-weight: 800;
+  color: var(--ns-color-text);
+  font-size: 0.95rem;
+}
