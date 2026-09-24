@@ -144,6 +144,57 @@ Application / Workflow Services
 
 The pricing engine remains deterministic and independent of UI, persistence, optimization, approval routing, and proposal rendering.
 
+## Frontend migration (in progress)
+
+Northstar's visual presentation is migrating from Streamlit to a dedicated
+React frontend, incrementally and workflow by workflow. **This is not
+complete.** See [ADR-003](docs/adr/003-frontend-api-separation.md) for the
+full decision and [`docs/FRONTEND_SPIKE.md`](docs/FRONTEND_SPIKE.md) for the
+visual feasibility spike that motivated it.
+
+**Current, both fully functional and running against the same Python domain:**
+
+```text
+Streamlit (app/)  ---> app/app_state.py ---> src/pricing_engine, src/quotes, src/budget_fit
+React (frontend/) ---> FastAPI (api/)   ---> src/pricing_engine, src/quotes, src/budget_fit
+```
+
+- `app/` — the original, complete Streamlit application (Deal Setup through Review Pricing, Scenario negotiation, Budget Fit, Budget Fit → Scenario → QuoteVersion promotion). Still the only complete workflow.
+- `frontend/` + `api/` — one migrated screen so far: **Optimize to Budget**, calling a real `POST /api/budget-fit` endpoint that runs the actual optimizer (`src/budget_fit.find_budget_fit`). Stateless: the client supplies the baseline configuration directly, since there is no durable quote resource yet.
+
+Neither `src/pricing_engine`, `src/quotes`, nor `src/budget_fit` has a second implementation for the API — both presentation layers call the same domain functions.
+
+## Local setup
+
+### Streamlit
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+### React + FastAPI (Optimize to Budget only, for now)
+
+```bash
+# Terminal 1 — API
+pip install -r requirements.txt
+python -m uvicorn api.main:app --reload    # http://localhost:8000
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+npm run dev                                # http://localhost:5173
+```
+
+### Tests
+
+```bash
+python -m pytest tests/ -q       # Python domain, application, and API tests
+cd frontend && npm run build     # TypeScript typecheck + production build
+```
+
 ## What this project demonstrates
 
 **Product thinking:** problem framing, personas/JTBD, workflow design, MVP boundaries, negotiation experience, roadmap, and product tradeoffs.
@@ -173,13 +224,5 @@ The pricing engine remains deterministic and independent of UI, persistence, opt
 - [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) — UI and interaction conventions
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — target solution architecture and domain model
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — staged implementation roadmap
-- [`docs/adr/`](docs/adr/) — architecture decision records
-
-## Local setup
-
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-streamlit run app/streamlit_app.py
-```
+- [`docs/adr/`](docs/adr/) — architecture decision records, including [ADR-003](docs/adr/003-frontend-api-separation.md) on the frontend/API migration
+- [`docs/FRONTEND_SPIKE.md`](docs/FRONTEND_SPIKE.md) — the visual feasibility spike that motivated the migration
