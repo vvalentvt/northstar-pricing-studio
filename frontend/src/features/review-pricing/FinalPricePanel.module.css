@@ -1,0 +1,26 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.amount {
+  font-size: var(--ns-text-amount-size);
+  font-weight: var(--ns-text-amount-weight);
+  color: var(--ns-color-text);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.metaRow {
+  margin-top: var(--ns-space-sm);
+  font-size: 0.82rem;
+  color: var(--ns-color-text-muted);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metaDivider {
+  color: var(--ns-color-border);
+}
