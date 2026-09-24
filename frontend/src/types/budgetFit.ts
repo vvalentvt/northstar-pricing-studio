@@ -1,11 +1,12 @@
 /**
- * Typed shape for the Optimize to Budget prototype.
+ * Typed shape for the Optimize to Budget screen's UI-facing state.
  *
- * This spike uses a static fixture (see src/fixtures/budgetFitFixture.ts)
- * but the UI is built against these interfaces, not raw constants, so a
- * later spike could swap the fixture for a real API response (e.g. a
- * serialized BudgetFitResult from src/budget_fit) without touching any
- * component.
+ * Quote/account context and the current configuration still come from a
+ * local fixture in Phase 6A (see src/fixtures/budgetFitFixture.ts) --
+ * there is no durable quote resource yet (see ADR-003). Recommendations
+ * do NOT: they come from the real FastAPI Budget Fit endpoint via
+ * src/api/budgetFit.ts, which maps the wire DTO (src/api/types.ts) into
+ * the `Recommendation` shape below.
  */
 
 export interface QuoteContext {
@@ -14,7 +15,11 @@ export interface QuoteContext {
   pricingVersion: string;
 }
 
-/** The committed configuration Budget Fit is trying to preserve. */
+/** The committed configuration Budget Fit is trying to preserve. Tier
+ * and coverage are raw domain values (e.g. "growth", "north_america"),
+ * matching what the API expects and returns -- format them for display
+ * with src/utils/format.ts, the same way the domain's own snapshots are
+ * formatted, rather than storing a separate display string. */
 export interface CurrentConfiguration {
   tier: string;
   users: number;
@@ -51,26 +56,29 @@ export interface RecommendationChange {
   to: string;
 }
 
+/** One ranked, explainable Budget Fit recommendation -- shaped for the
+ * UI from the API's RecommendationDto (see src/api/budgetFit.ts). */
 export interface Recommendation {
   id: string;
-  /** "A", "B", "C" -- matches the approved wireframe's option labeling. */
+  /** "A", "B", "C" -- derived from rank for the card eyebrow, matching
+   * the approved wireframe's option labeling. Not returned by the API. */
   optionLabel: string;
-  name: string;
+  rank: number;
   isRecommended: boolean;
+  isBaseline: boolean;
   finalPrice: number;
-  /** Positive = under budget, matching Budget Fit's own headroom concept. */
+  /** Positive = under budget. */
   budgetHeadroom: number;
-  /** 0-100. A range is shown via capabilityPreservedRangeLabel when set. */
+  /** 0-100. */
   capabilityPreservedPercent: number;
-  capabilityPreservedRangeLabel?: string;
   approvalRequired: boolean;
+  approvalReason: string | null;
   changes: RecommendationChange[];
   preserved: string[];
 }
 
 export interface BudgetContext {
   currentPrice: number;
-  targetBudget: number;
 }
 
 export interface BudgetFitPageData {
@@ -78,5 +86,4 @@ export interface BudgetFitPageData {
   currentConfiguration: CurrentConfiguration;
   budget: BudgetContext;
   constraints: ConstraintState;
-  recommendations: Recommendation[];
 }

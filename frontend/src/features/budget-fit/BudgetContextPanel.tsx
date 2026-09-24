@@ -5,12 +5,24 @@ import styles from "./BudgetContextPanel.module.css";
 
 interface BudgetContextPanelProps {
   budget: BudgetContext;
+  targetBudget: number;
   onFindOptions: () => void;
-  optionsRevealed: boolean;
+  loading: boolean;
+  hasSearched: boolean;
 }
 
-export function BudgetContextPanel({ budget, onFindOptions, optionsRevealed }: BudgetContextPanelProps) {
-  const gap = budget.targetBudget - budget.currentPrice;
+export function BudgetContextPanel({
+  budget,
+  targetBudget,
+  onFindOptions,
+  loading,
+  hasSearched,
+}: BudgetContextPanelProps) {
+  const gap = targetBudget - budget.currentPrice;
+
+  let buttonLabel = "Find Options";
+  if (loading) buttonLabel = "Finding Options…";
+  else if (hasSearched) buttonLabel = "Find Options Again";
 
   return (
     <Panel label="Budget Context">
@@ -20,7 +32,7 @@ export function BudgetContextPanel({ budget, onFindOptions, optionsRevealed }: B
       </div>
       <div className={styles.row}>
         <span className={styles.rowLabel}>Target budget</span>
-        <span className={styles.rowValue}>{formatMoney(budget.targetBudget)}</span>
+        <span className={styles.rowValue}>{formatMoney(targetBudget)}</span>
       </div>
       <hr className={styles.divider} />
       <div className={`${styles.row} ${styles.gapRow}`}>
@@ -34,8 +46,13 @@ export function BudgetContextPanel({ budget, onFindOptions, optionsRevealed }: B
       </p>
 
       <div className={styles.actionRow}>
-        <button type="button" className={styles.primaryButton} onClick={onFindOptions}>
-          {optionsRevealed ? "Find Options Again" : "Find Options"}
+        <button
+          type="button"
+          className={styles.primaryButton}
+          onClick={onFindOptions}
+          disabled={loading}
+        >
+          {buttonLabel}
         </button>
       </div>
     </Panel>

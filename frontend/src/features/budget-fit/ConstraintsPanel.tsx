@@ -1,5 +1,6 @@
 import type { ConstraintState, CurrentConfiguration } from "../../types/budgetFit";
 import { Panel } from "../../components/Panel";
+import { formatCoverage, formatTier } from "../../utils/format";
 import styles from "./ConstraintsPanel.module.css";
 
 interface ConstraintsPanelProps {
@@ -65,13 +66,13 @@ export function ConstraintsPanel({ configuration, constraints, onChange }: Const
           <h3 className={styles.groupLabel}>Must keep exactly</h3>
           <CheckboxRow
             id="lock-tier"
-            label={`Tier — ${configuration.tier}`}
+            label={`Tier — ${formatTier(configuration.tier)}`}
             checked={constraints.lockTier}
             onChange={(value) => update("lockTier", value)}
           />
           <CheckboxRow
             id="lock-coverage"
-            label={`Coverage — ${configuration.coverage}`}
+            label={`Coverage — ${formatCoverage(configuration.coverage)}`}
             checked={constraints.lockCoverage}
             onChange={(value) => update("lockCoverage", value)}
           />

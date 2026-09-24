@@ -41,13 +41,6 @@
   color: var(--ns-color-primary-text);
 }
 
-.name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--ns-color-text);
-  margin: 0 0 12px 0;
-}
-
 .price {
   font-size: 2.1rem;
   font-weight: 800;
@@ -82,6 +75,12 @@
   font-weight: 400;
   color: var(--ns-color-text-muted);
   margin-left: 4px;
+}
+
+.approvalReason {
+  font-size: 0.78rem;
+  color: var(--ns-color-text-muted);
+  margin: 0 0 var(--ns-space-md) 0;
 }
 
 .changesLabel {

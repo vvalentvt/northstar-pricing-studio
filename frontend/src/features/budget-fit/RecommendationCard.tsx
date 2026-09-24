@@ -32,14 +32,12 @@ export function RecommendationCard({ recommendation, added, onToggleAdd }: Recom
         ) : null}
       </div>
 
-      <h3 className={styles.name}>{recommendation.name}</h3>
-
       <div className={styles.price}>{formatMoney(recommendation.finalPrice)}</div>
       <p className={styles.headroom}>{formatMoney(recommendation.budgetHeadroom)} under budget</p>
 
       <div className={styles.statRow}>
         <span className={styles.capability}>
-          {recommendation.capabilityPreservedRangeLabel ?? `${recommendation.capabilityPreservedPercent}%`}
+          {recommendation.capabilityPreservedPercent}%
           <span className={styles.capabilityLabel}>capability preserved</span>
         </span>
         <StatusBadge
@@ -47,18 +45,27 @@ export function RecommendationCard({ recommendation, added, onToggleAdd }: Recom
           tone={recommendation.approvalRequired ? "amber" : "green"}
         />
       </div>
+      {recommendation.approvalRequired && recommendation.approvalReason ? (
+        <p className={styles.approvalReason}>{recommendation.approvalReason}</p>
+      ) : null}
 
-      <p className={styles.changesLabel}>Changes from baseline</p>
-      <ul className={styles.changeList}>
-        {recommendation.changes.map((change) => (
-          <li className={styles.changeRow} key={change.field}>
-            <span className={styles.changeField}>{change.field}</span>
-            <span className={styles.changeValue}>
-              {change.from} → {change.to}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {recommendation.changes.length > 0 ? (
+        <>
+          <p className={styles.changesLabel}>Changes from baseline</p>
+          <ul className={styles.changeList}>
+            {recommendation.changes.map((change) => (
+              <li className={styles.changeRow} key={change.field}>
+                <span className={styles.changeField}>{change.field}</span>
+                <span className={styles.changeValue}>
+                  {change.from} → {change.to}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className={styles.changesLabel}>No changes — this is the current configuration</p>
+      )}
 
       <div className={styles.spacer} />
 

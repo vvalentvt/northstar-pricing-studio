@@ -10,3 +10,17 @@ export function formatMoney(amount: number, options?: { signed?: boolean }): str
   if (amount < 0) return `-${formatted}`;
   return formatted;
 }
+
+/** Display formatting for raw domain values (e.g. "growth" -> "Growth")
+ * -- mirrors the Python domain's own _format_value convention. The API
+ * always sends/receives the raw value; only display uses these. */
+export function formatTier(tier: string): string {
+  return tier.charAt(0).toUpperCase() + tier.slice(1);
+}
+
+export function formatCoverage(coverage: string): string {
+  return coverage
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
