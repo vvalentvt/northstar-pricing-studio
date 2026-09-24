@@ -1,3 +1,16 @@
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--ns-space-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ns-color-text-muted);
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--ns-color-primary);
+}
+
 .panelRow {
   display: grid;
   grid-template-columns: 1.15fr 1fr;

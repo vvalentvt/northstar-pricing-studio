@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { BudgetFitPageData, ConstraintState, Recommendation } from "../../types/budgetFit";
 import { formatMoney } from "../../utils/format";
 import { PageHeader } from "../../components/PageHeader";
@@ -11,6 +12,10 @@ import styles from "./OptimizeToBudgetPage.module.css";
 
 interface OptimizeToBudgetPageProps {
   data: BudgetFitPageData;
+  /** Set only when this screen was launched from a persisted Quote's
+   * Review Pricing page (see OptimizeToBudgetRoute.tsx) -- gives the
+   * user an explicit way back instead of relying on browser Back. */
+  backHref?: string;
 }
 
 /**
@@ -38,7 +43,7 @@ type SearchState =
  * remains frontend-local: it does not call ScenarioWorkspace, which is
  * a later migration slice.
  */
-export function OptimizeToBudgetPage({ data }: OptimizeToBudgetPageProps) {
+export function OptimizeToBudgetPage({ data, backHref }: OptimizeToBudgetPageProps) {
   const [constraints, setConstraints] = useState<ConstraintState>(data.constraints);
   const [search, setSearch] = useState<SearchState>({ status: "idle" });
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -73,6 +78,11 @@ export function OptimizeToBudgetPage({ data }: OptimizeToBudgetPageProps) {
 
   return (
     <div>
+      {backHref ? (
+        <Link to={backHref} className={styles.backLink}>
+          ← Back to Review Pricing
+        </Link>
+      ) : null}
       <PageHeader
         title="Optimize to Budget"
         contextLine={`${data.quote.accountName} • Quote ${data.quote.quoteId} • based on ${data.quote.pricingVersion}`}
