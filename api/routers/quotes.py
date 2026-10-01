@@ -12,9 +12,6 @@ reimplemented here.
 
 from __future__ import annotations
 
-from functools import lru_cache
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import ValidationError
 
@@ -25,15 +22,17 @@ from persistence import (
     QuoteRepository,
     QuoteVersionNotFoundError,
 )
-from pricing_engine import QuoteRequest, calculate_quote, load_rules
+from pricing_engine import calculate_quote
 from quotes import Quote, QuoteVersion
 
-from api.dependencies import get_quote_repository
+from api.dependencies import get_pricing_rules, get_quote_repository
+from api.dto_mapping import (
+    configuration_dto_to_request,
+    configuration_snapshot_to_dto,
+    pricing_snapshot_to_dto,
+)
 from api.models import (
-    ConfigurationDto,
     CreateQuoteRequestDto,
-    PricingSnapshotDto,
-    AdjustmentDto,
     QuoteResponseDto,
     QuoteVersionResponseDto,
     QuoteVersionSummaryDto,
@@ -41,73 +40,14 @@ from api.models import (
 
 router = APIRouter(prefix="/api/quotes", tags=["quotes"])
 
-ROOT = Path(__file__).resolve().parents[2]
-RULES_PATH = ROOT / "config" / "pricing_rules.yaml"
-
-
-@lru_cache(maxsize=1)
-def get_rules() -> dict:
-    """The same canonical pricing-rule loader used everywhere else --
-    never a second pricing configuration source."""
-    return load_rules(RULES_PATH)
-
-
-def _configuration_dto_to_request(dto: ConfigurationDto) -> QuoteRequest:
-    return QuoteRequest(
-        customer_name=dto.customer_name,
-        tier=dto.tier,
-        users=dto.users,
-        coverage=dto.coverage,
-        history_years=dto.history_years,
-        contract_months=dto.contract_months,
-        premium_support=dto.premium_support,
-        implementation_services=dto.implementation_services,
-        renewal=dto.renewal,
-        requested_discount_percent=dto.requested_discount_percent,
-    )
-
-
-def _configuration_snapshot_to_dto(snapshot) -> ConfigurationDto:
-    return ConfigurationDto(
-        customerName=snapshot.customer_name,
-        tier=snapshot.tier,
-        users=snapshot.users,
-        coverage=snapshot.coverage,
-        historyYears=snapshot.history_years,
-        contractMonths=snapshot.contract_months,
-        premiumSupport=snapshot.premium_support,
-        implementationServices=snapshot.implementation_services,
-        renewal=snapshot.renewal,
-        requestedDiscountPercent=snapshot.requested_discount_percent,
-    )
-
-
-def _pricing_snapshot_to_dto(pricing) -> PricingSnapshotDto:
-    return PricingSnapshotDto(
-        ruleVersion=pricing.rule_version,
-        basePrice=pricing.base_price,
-        adjustments=[
-            AdjustmentDto(name=a.name, amount=a.amount, explanation=a.explanation)
-            for a in pricing.adjustments
-        ],
-        subtotalBeforeDiscount=pricing.subtotal_before_discount,
-        discountAmount=pricing.discount_amount,
-        finalPrice=pricing.final_price,
-        approvalRequired=pricing.approval_required,
-        approvalReason=pricing.approval_reason,
-        selfServiceThresholdPercent=pricing.self_service_threshold_percent,
-        maxAllowedDiscountPercent=pricing.max_allowed_discount_percent,
-        calculatedAt=pricing.calculated_at.isoformat(),
-    )
-
 
 def _version_to_response_dto(version: QuoteVersion) -> QuoteVersionResponseDto:
     return QuoteVersionResponseDto(
         versionNumber=version.version_number,
         source=version.source.value,
         createdAt=version.created_at.isoformat(),
-        configuration=_configuration_snapshot_to_dto(version.configuration_snapshot),
-        pricing=_pricing_snapshot_to_dto(version.pricing_snapshot),
+        configuration=configuration_snapshot_to_dto(version.configuration_snapshot),
+        pricing=pricing_snapshot_to_dto(version.pricing_snapshot),
     )
 
 
@@ -141,8 +81,8 @@ def create_quote_endpoint(
     """Calculate v1 server-side via the canonical pricing engine and
     persist it. The client supplies a configuration, never a price."""
     try:
-        configuration = _configuration_dto_to_request(request.configuration)
-        result = calculate_quote(configuration, get_rules())
+        configuration = configuration_dto_to_request(request.configuration)
+        result = calculate_quote(configuration, get_pricing_rules())
         quote = create_quote(
             customer_name=request.customer_name,
             owner=request.owner,
