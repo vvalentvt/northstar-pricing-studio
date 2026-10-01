@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names API,WEB \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": ".venv\\Scripts\\python.exe -m uvicorn api.main:app --reload",
+    "dev:web": "npm --prefix frontend run dev",
+    "test": ".venv\\Scripts\\python.exe -m pytest tests/ -q",
+    "test:web": "npm --prefix frontend test",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
