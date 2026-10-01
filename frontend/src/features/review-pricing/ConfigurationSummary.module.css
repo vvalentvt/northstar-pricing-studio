@@ -1,0 +1,21 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+}
+
+.rowLabel {
+  color: var(--ns-color-text-muted);
+}
+
+.rowValue {
+  color: var(--ns-color-text);
+  font-weight: 600;
+  text-align: right;
+}

@@ -1,0 +1,52 @@
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 0.88rem;
+}
+
+.rowLabel {
+  color: var(--ns-color-text);
+}
+
+.rowValue {
+  color: var(--ns-color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--ns-color-border);
+  margin: var(--ns-space-sm) 0;
+}
+
+.totalRow {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.explanations {
+  margin-top: var(--ns-space-md);
+}
+
+.explanationsSummary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ns-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.explanationList {
+  margin: var(--ns-space-sm) 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.explanationItem {
+  padding: 3px 0;
+  font-size: 0.82rem;
+  color: var(--ns-color-text-muted);
+}

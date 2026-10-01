@@ -61,3 +61,49 @@ export interface BudgetFitResponseDto {
   recommendations: RecommendationDto[];
   noFitReason: string | null;
 }
+
+export interface AdjustmentDto {
+  name: string;
+  amount: number;
+  explanation: string;
+}
+
+export interface PricingSnapshotDto {
+  ruleVersion: string;
+  basePrice: number;
+  adjustments: AdjustmentDto[];
+  subtotalBeforeDiscount: number;
+  discountAmount: number;
+  finalPrice: number;
+  approvalRequired: boolean;
+  approvalReason: string | null;
+  selfServiceThresholdPercent: number;
+  maxAllowedDiscountPercent: number;
+  calculatedAt: string;
+}
+
+export interface QuoteVersionResponseDto {
+  versionNumber: number;
+  source: string;
+  createdAt: string;
+  configuration: ConfigurationDto;
+  pricing: PricingSnapshotDto;
+}
+
+export interface QuoteVersionSummaryDto {
+  versionNumber: number;
+  source: string;
+  createdAt: string;
+  finalPrice: number;
+  approvalRequired: boolean;
+}
+
+export interface QuoteResponseDto {
+  quoteId: string;
+  customerName: string;
+  owner: string;
+  status: string;
+  createdAt: string;
+  currentVersion: QuoteVersionResponseDto;
+  versionHistory: QuoteVersionSummaryDto[];
+}

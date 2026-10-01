@@ -1,7 +1,7 @@
 /**
  * The one place this app calls `fetch`. Feature code should never call
- * fetch directly -- see src/api/budgetFit.ts for the typed function
- * built on top of this.
+ * fetch directly -- see src/api/budgetFit.ts and src/api/quotes.ts for
+ * the typed functions built on top of this.
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -16,18 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiPost<TResponse>(path: string, body: unknown): Promise<TResponse> {
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiError(0, "Unable to reach the Northstar API.");
-  }
-
+async function handleResponse<TResponse>(response: Response): Promise<TResponse> {
   if (!response.ok) {
     let detail = `Request failed with status ${response.status}.`;
     try {
@@ -45,4 +34,28 @@ export async function apiPost<TResponse>(path: string, body: unknown): Promise<T
   }
 
   return (await response.json()) as TResponse;
+}
+
+export async function apiGet<TResponse>(path: string): Promise<TResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`);
+  } catch {
+    throw new ApiError(0, "Unable to reach the Northstar API.");
+  }
+  return handleResponse<TResponse>(response);
+}
+
+export async function apiPost<TResponse>(path: string, body: unknown): Promise<TResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, "Unable to reach the Northstar API.");
+  }
+  return handleResponse<TResponse>(response);
 }

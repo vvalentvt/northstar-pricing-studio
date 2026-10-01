@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 import styles from "./AppShell.module.css";
 
 interface AppShellProps {
@@ -7,10 +8,17 @@ interface AppShellProps {
 
 /**
  * The desktop application shell: branded dark sidebar + nav, content
- * canvas on the right. Only "Quotes" (the Optimize to Budget screen
- * this spike renders) is meaningfully "active" -- the rest of the nav
- * is static visual context, per the spike's scope (only one screen
- * needs to be functional).
+ * canvas on the right.
+ *
+ * "Optimize to Budget" is the one real, working nav link. Review
+ * Pricing is quote-specific (reached from a Quote, e.g. via the
+ * legacy Streamlit app or a direct link) and deliberately has no global
+ * nav entry -- there is no quote listing/dashboard yet (see Phase 6C
+ * spec section 27), so a standing nav link would have nowhere honest to
+ * point without a quoteId. Other workflows (Deal Setup, Configure,
+ * Approvals, ...) are intentionally omitted rather than shown as
+ * decorative/disabled items -- the nav should not imply a broader
+ * migrated product than currently exists.
  */
 export function AppShell({ children }: AppShellProps) {
   return (
@@ -21,12 +29,14 @@ export function AppShell({ children }: AppShellProps) {
           <div className={styles.brandSubtitle}>Pricing Studio</div>
         </div>
         <nav className={styles.nav}>
-          <span className={styles.navItem}>Home</span>
-          <span className={`${styles.navItem} ${styles.navItemActive}`}>Quotes</span>
-          <span className={styles.navSubItem}>All Quotes</span>
-          <span className={styles.navSubItem}>New Quote</span>
-          <span className={styles.navItem}>Approvals</span>
-          <span className={styles.navItem}>Pricing Rules</span>
+          <NavLink
+            to="/budget-fit"
+            className={({ isActive }) =>
+              isActive ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem
+            }
+          >
+            Optimize to Budget
+          </NavLink>
         </nav>
       </aside>
       <main className={styles.main}>{children}</main>
