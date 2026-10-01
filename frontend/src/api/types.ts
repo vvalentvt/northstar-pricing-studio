@@ -98,6 +98,12 @@ export interface QuoteVersionSummaryDto {
   approvalRequired: boolean;
 }
 
+export interface CreateQuoteRequestDto {
+  customerName: string;
+  owner: string;
+  configuration: ConfigurationDto;
+}
+
 export interface QuoteResponseDto {
   quoteId: string;
   customerName: string;
@@ -106,4 +112,19 @@ export interface QuoteResponseDto {
   createdAt: string;
   currentVersion: QuoteVersionResponseDto;
   versionHistory: QuoteVersionSummaryDto[];
+}
+
+export interface DiscountPolicyDto {
+  selfServiceThresholdPercent: number;
+  maxAllowedDiscountPercent: number;
+}
+
+export interface PricingOptionsResponseDto {
+  ruleVersion: string;
+  tiers: string[];
+  coverage: string[];
+  historyYears: number[];
+  contractMonths: number[];
+  includedUsers: number;
+  discountPolicy: DiscountPolicyDto;
 }
