@@ -159,18 +159,30 @@ Streamlit (app/)  ---> app/app_state.py ---> src/pricing_engine, src/quotes, src
 React (frontend/) ---> FastAPI (api/)   ---> src/pricing_engine, src/quotes, src/budget_fit
 ```
 
-- `app/` — the original, complete Streamlit application (Deal Setup through Review Pricing, Scenario negotiation, Budget Fit, Budget Fit → Scenario → QuoteVersion promotion). Still the only complete workflow, and still entirely `st.session_state`-backed — it has **not** been migrated to SQLite.
-- `frontend/` + `api/` — two migrated screens so far:
-  - **Optimize to Budget** (`/budget-fit`) — calls a real `POST /api/budget-fit` endpoint that runs the actual optimizer (`src/budget_fit.find_budget_fit`). Stateless by default (a static baseline fixture); when launched as `/budget-fit?quoteId=<id>`, the baseline instead comes from a real persisted Quote.
-  - **Review Pricing** (`/quotes/{quoteId}/review`) — a read-only view of a durable Quote's current committed `QuoteVersion` / `PricingSnapshot`, fetched from `GET /api/quotes/{quoteId}`. It never recalculates pricing; every figure shown (final price, price bridge, approval state, guardrail thresholds) is exactly what was persisted at commit time. Directly linkable and refresh-safe — Quote identity lives in the database, not in frontend session state.
+- `app/` — the original, complete Streamlit application (Deal Setup through Review Pricing, Scenario negotiation, Budget Fit, Budget Fit → Scenario → QuoteVersion promotion). Still entirely `st.session_state`-backed — it has **not** been migrated to SQLite, and its own Quote history is independent of the API's.
+- `frontend/` + `api/` — as of Phase 6D, **the full quote-creation path is migrated and no longer needs Streamlit or Swagger**:
+  - **New Quote / Deal Setup** (`/quotes/new/setup`) — captures customer, owner, and deal type (New Business / Renewal). A temporary draft only (sessionStorage-backed, see `frontend/src/features/quote-draft/`) — nothing is persisted yet.
+  - **Configure** (`/quotes/new/configure`) — product/scope/services/commercial-terms form. Pricing options (tiers, coverage, terms, discount guardrails) come from `GET /api/pricing/options`, derived live from `config/pricing_rules.yaml`. "Calculate Pricing" calls the stateless `POST /api/pricing/preview` (same canonical `calculate_quote()` engine, persists nothing); the preview goes stale the moment the configuration changes again, and a stale preview can't be committed.
+  - **Review Pricing →** on Configure is the commitment boundary: it calls `POST /api/quotes`, which recalculates canonically server-side and persists Quote v1 to SQLite, then navigates to `/quotes/{quoteId}/review`.
+  - **Review Pricing** (`/quotes/{quoteId}/review`) — a read-only view of a durable Quote's current committed `QuoteVersion` / `PricingSnapshot`, fetched from `GET /api/quotes/{quoteId}`. Never recalculates pricing. Directly linkable and refresh-safe — Quote identity lives in the database, not in frontend session state.
+  - **Optimize to Budget** (`/budget-fit`) — calls `POST /api/budget-fit`, the real optimizer (`src/budget_fit.find_budget_fit`). Stateless by default (a static baseline fixture); launched from Review Pricing as `/budget-fit?quoteId=<id>`, the baseline instead comes from the real persisted Quote.
 
-Neither `src/pricing_engine`, `src/quotes`, nor `src/budget_fit` has a second implementation for the API — both presentation layers call the same domain functions, including the shared quote-creation orchestration in `src/application/quotes.py`.
+Neither `src/pricing_engine`, `src/quotes`, nor `src/budget_fit` has a second implementation for the API — both presentation layers call the same domain functions, including the shared quote-creation orchestration in `src/application/quotes.py`. SQLite (`src/persistence`, see [ADR-004](docs/adr/004-quote-persistence.md)) persists `Quote` and `QuoteVersion` only.
 
-**Durable Quote persistence (Phase 6B).** The API has its own durable Quote resource: `POST /api/quotes`, `GET /api/quotes/{quoteId}`, and `GET /api/quotes/{quoteId}/versions/{versionNumber}`, backed by SQLite (`src/persistence`, see [ADR-004](docs/adr/004-quote-persistence.md)). This is **not** the same Quote store Streamlit uses — a quote created through the API is not visible in Streamlit and vice versa; the two presentation layers' Quote histories are independent and unsynchronized during this migration.
-
-**Still in Streamlit only:** Deal Setup, Configure, Scenario negotiation / Explore Alternatives, and the Proposal workflow. Quote listing/search, scenario persistence, and approval routing do not exist in either presentation layer yet.
+**Still in Streamlit only:** Scenario negotiation / Explore Alternatives, Budget Fit → Scenario → QuoteVersion promotion, and the Proposal workflow. Quote listing/search, scenario persistence, revision/append-version creation from the UI, and approval routing do not exist in either presentation layer yet.
 
 ## Local setup
+
+### React + FastAPI (recommended)
+
+```bash
+npm install          # once, at the repo root -- installs the dev-runner only
+npm run dev           # starts FastAPI (http://localhost:8000) and Vite (http://localhost:5173) together
+```
+
+Open `http://localhost:5173` — `/` redirects straight to New Quote / Deal Setup. Swagger is still available at `http://localhost:8000/docs` for manual API poking, but normal quote creation no longer needs it.
+
+The root `npm run dev` script assumes a `.venv` already exists with `requirements.txt` installed (see Streamlit setup below) and invokes `.venv\Scripts\python.exe` directly; adjust `package.json`'s `dev:api` script if your virtualenv lives elsewhere.
 
 ### Streamlit
 
@@ -181,7 +193,7 @@ pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-### React + FastAPI
+### React + FastAPI (manual, two terminals)
 
 ```bash
 # Terminal 1 — API
@@ -194,9 +206,17 @@ npm install
 npm run dev                                # http://localhost:5173
 ```
 
-`/` redirects to `/budget-fit`. To open Review Pricing directly during development, create a quote via the API's Swagger UI (`http://localhost:8000/docs` → `POST /api/quotes`) and navigate to `http://localhost:5173/quotes/{quoteId}/review` — this route is directly linkable and survives a browser refresh, since Quote identity lives in SQLite, not frontend state.
-
 ### Tests
+
+From the repo root (delegates to the same commands below):
+
+```bash
+npm test            # Python domain, application, and API tests
+npm run test:web    # React component tests (Vitest + React Testing Library)
+npm run build        # TypeScript typecheck + production build
+```
+
+Or directly:
 
 ```bash
 python -m pytest tests/ -q       # Python domain, application, and API tests
