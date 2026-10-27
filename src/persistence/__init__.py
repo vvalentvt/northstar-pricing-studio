@@ -3,6 +3,11 @@ from .budget_fit_run_repository import (
     BudgetFitRunNotFoundError,
     BudgetFitRunRepository,
 )
+from .proposal_repository import (
+    DuplicateProposalError,
+    ProposalNotFoundError,
+    ProposalRepository,
+)
 from .quote_repository import (
     DuplicateQuoteError,
     QuoteNotFoundError,
@@ -17,6 +22,7 @@ from .scenario_repository import (
     WorkspaceNotFoundError,
 )
 from .sqlite_budget_fit_run_repository import SQLiteBudgetFitRunRepository
+from .sqlite_proposal_repository import SQLiteProposalRepository
 from .sqlite_quote_repository import SQLiteQuoteRepository
 from .sqlite_scenario_repository import SQLiteScenarioRepository
 
@@ -36,4 +42,8 @@ __all__ = [
     "SQLiteBudgetFitRunRepository",
     "BudgetFitRun",
     "BudgetFitRunNotFoundError",
+    "ProposalRepository",
+    "SQLiteProposalRepository",
+    "ProposalNotFoundError",
+    "DuplicateProposalError",
 ]
