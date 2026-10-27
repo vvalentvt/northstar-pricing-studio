@@ -250,4 +250,3 @@ class SQLiteScenarioRepository:
             ),
             created_at=created_at,
         )
-
