@@ -259,6 +259,8 @@ class AlternativesResponseDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     quote_id: str = Field(alias="quoteId")
+    customer_name: str = Field(alias="customerName")
+    owner: str
     base_version_number: int = Field(alias="baseVersionNumber")
     current_version_number: int = Field(alias="currentVersionNumber")
     stale: bool

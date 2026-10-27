@@ -113,6 +113,8 @@ def _alternatives_to_dto(quote: Quote, workspace: ScenarioWorkspace) -> Alternat
     baseline_version = resolve_quote_version(quote, workspace.base_version_number)
     return AlternativesResponseDto(
         quoteId=quote.quote_id,
+        customerName=quote.customer_name,
+        owner=quote.owner,
         baseVersionNumber=workspace.base_version_number,
         currentVersionNumber=quote.current_version.version_number,
         stale=_is_stale(quote, workspace),
