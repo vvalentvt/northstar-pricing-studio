@@ -2,9 +2,15 @@
  * The one place this app calls `fetch`. Feature code should never call
  * fetch directly -- see src/api/budgetFit.ts and src/api/quotes.ts for
  * the typed functions built on top of this.
+ *
+ * Empty string by default -- a relative "/api/..." request resolves
+ * same-origin, which is how production serves the built SPA from
+ * FastAPI itself (see api/main.py). Development overrides this via
+ * .env.development (VITE_API_BASE_URL=http://localhost:8000), since
+ * `npm run dev` runs Vite and FastAPI on separate ports. Never
+ * hard-code localhost here -- it would ship into the production bundle.
  */
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export class ApiError extends Error {
   status: number;
