@@ -1,0 +1,62 @@
+.heading {
+  font-size: var(--ns-text-section-heading-size);
+  font-weight: var(--ns-text-section-heading-weight);
+  color: var(--ns-color-text);
+  margin: 0 0 var(--ns-space-md) 0;
+}
+
+.emptyNote {
+  font-size: 0.86rem;
+  color: var(--ns-color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ns-space-md);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ns-color-border);
+}
+
+.row:first-child {
+  border-top: 1px solid var(--ns-color-border);
+}
+
+.rowMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.proposalId {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.rowDetail {
+  font-size: 0.78rem;
+  color: var(--ns-color-text-muted);
+}
+
+.downloadButton {
+  flex-shrink: 0;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+}
+
+.downloadButton:hover {
+  border-color: var(--ns-color-primary);
+}

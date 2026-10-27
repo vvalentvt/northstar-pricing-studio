@@ -1,3 +1,10 @@
+from .proposals import (
+    TEMPLATE_VERSION,
+    ProposalError,
+    build_proposal_filename,
+    generate_proposal,
+    generate_proposal_id,
+)
 from .quotes import create_quote, generate_quote_id
 from .scenarios import (
     ScenarioError,
@@ -15,6 +22,11 @@ from .scenarios import (
 __all__ = [
     "create_quote",
     "generate_quote_id",
+    "TEMPLATE_VERSION",
+    "ProposalError",
+    "build_proposal_filename",
+    "generate_proposal",
+    "generate_proposal_id",
     "ScenarioError",
     "add_budget_fit_recommendation",
     "budget_fit_recommendation_is_added",

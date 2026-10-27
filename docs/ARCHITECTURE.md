@@ -480,6 +480,8 @@ The ProposalAssembler may allow editable customer-facing narrative, but approved
 - template/version metadata;
 - invoking document renderer.
 
+**Implemented (Phase 6F):** `src/application/proposals.py::generate_proposal` is this service -- it verifies the caller's expected version against the Quote's actual current version, blocks approval-required pricing, builds the frozen `ProposalSnapshot` (`src/proposals/models.py`), and invokes a `ProposalRenderer` (`src/proposals/renderer.py`; `ReportLabProposalRenderer` is the one concrete implementation) to produce PDF bytes, which `ProposalRepository` then persists immutably. See [ADR-006](adr/006-proposal-artifacts.md).
+
 ---
 
 ## 11. Persistence strategy
@@ -507,11 +509,20 @@ budget_fit_runs      -- one row per quote-linked Budget Fit search, write-once l
 
 Unlike `quote_versions`, rows here are genuinely updated/deleted: selecting a different Scenario updates `scenario_workspaces.selected_scenario_id` in place, and a successful promotion (or "Start New Exploration") deletes the workspace's rows outright. Promotion itself still only ever appends to `quote_versions` via the existing `QuoteRepository.append_version` — nothing about exploratory persistence changes how commercial history is written.
 
+**Implemented (Phase 6F — see [ADR-006](adr/006-proposal-artifacts.md)):** generated customer-facing Proposal artifacts, back to being immutable like `quote_versions`:
+
+```text
+proposals  -- one row per generated Proposal; FK to quote_versions(quote_id, version_number);
+              proposal_snapshot_json (frozen narrative + configuration + pricing) and the
+              rendered PDF itself (pdf_bytes BLOB) -- never regenerated on read
+```
+
+`ProposalRepository` has no update method at all -- a new narrative or a Quote that has since advanced to a later version always means a new `proposals` row (a new Proposal ID), never a mutation of an existing one. Generation (`src/application/proposals.py`) reads only the committed `QuoteVersion` it's told to use; it never calls `calculate_quote()` and never touches `quotes`/`quote_versions`/`scenario_workspaces`.
+
 **Still deferred:**
 
 ```text
 approvals
-proposals
 ```
 
 Pricing adjustments/explanations are stored as structured JSON within the `pricing_snapshot` column rather than further-normalized tables — sufficient for portfolio scope, and consistent with treating the domain model (not the schema) as the source of truth for what a valid snapshot looks like.

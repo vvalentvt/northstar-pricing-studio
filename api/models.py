@@ -11,6 +11,8 @@ src/pricing_engine.
 
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -326,3 +328,64 @@ class QuoteLinkedBudgetFitResponseDto(BaseModel):
     feasible_candidate_count: int = Field(alias="feasibleCandidateCount")
     recommendations: list[RecommendationDto]
     no_fit_reason: str | None = Field(default=None, alias="noFitReason")
+
+
+class CreateProposalRequestDto(BaseModel):
+    """POST /api/quotes/{quoteId}/proposals request body.
+
+    Deliberately carries only editable narrative plus the concurrency
+    guard (expectedVersionNumber) -- never finalPrice, a
+    PricingSnapshot, a ConfigurationSnapshot, or approval state. The
+    server always loads those from the committed QuoteVersion.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    expected_version_number: int = Field(alias="expectedVersionNumber", ge=1)
+    proposal_title: str = Field(alias="proposalTitle", min_length=1, max_length=200)
+    executive_summary: str = Field(alias="executiveSummary", min_length=1, max_length=4000)
+    commercial_notes: str | None = Field(default=None, alias="commercialNotes", max_length=4000)
+    valid_through: date | None = Field(default=None, alias="validThrough")
+
+
+class ProposalNarrativeDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    proposal_title: str = Field(alias="proposalTitle")
+    executive_summary: str = Field(alias="executiveSummary")
+    commercial_notes: str | None = Field(default=None, alias="commercialNotes")
+    valid_through: date | None = Field(default=None, alias="validThrough")
+
+
+class ProposalResponseDto(BaseModel):
+    """Response for both POST .../proposals (creation) and
+    GET /api/proposals/{proposalId} (detail) -- same shape, since both
+    describe one durable Proposal."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    proposal_id: str = Field(alias="proposalId")
+    quote_id: str = Field(alias="quoteId")
+    quote_version_number: int = Field(alias="quoteVersionNumber")
+    created_at: str = Field(alias="createdAt")
+    template_version: str = Field(alias="templateVersion")
+    filename: str
+    customer_name: str = Field(alias="customerName")
+    owner: str
+    narrative: ProposalNarrativeDto
+    configuration: ConfigurationDto
+    pricing: PricingSnapshotDto
+
+
+class ProposalSummaryDto(BaseModel):
+    """GET /api/quotes/{quoteId}/proposals list entry -- compact, no
+    snapshot payload. Enough to render proposal history and link to
+    the full detail/PDF."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    proposal_id: str = Field(alias="proposalId")
+    quote_version_number: int = Field(alias="quoteVersionNumber")
+    created_at: str = Field(alias="createdAt")
+    template_version: str = Field(alias="templateVersion")
+    filename: str

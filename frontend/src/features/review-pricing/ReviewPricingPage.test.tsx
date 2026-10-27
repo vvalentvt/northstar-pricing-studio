@@ -173,4 +173,33 @@ describe("ReviewPricingPage", () => {
     const link = await screen.findByRole("link", { name: "Optimize to Budget" });
     expect(link).toHaveAttribute("href", "/budget-fit?quoteId=Q-84502");
   });
+
+  it("shows a real Create Proposal action with the correct quoteId when within authority", async () => {
+    mockGetQuote.mockResolvedValue(baseQuote());
+
+    renderAtQuote("Q-84502");
+
+    const link = await screen.findByRole("link", { name: "Create Proposal" });
+    expect(link).toHaveAttribute("href", "/quotes/Q-84502/proposal");
+  });
+
+  it("gates the Proposal action when approval is required, never a clickable link", async () => {
+    mockGetQuote.mockResolvedValue(
+      baseQuote({
+        currentVersion: {
+          ...baseQuote().currentVersion,
+          pricing: {
+            ...baseQuote().currentVersion.pricing,
+            approvalRequired: true,
+            approvalReason: "Discount exceeds 10% self-service threshold",
+          },
+        },
+      }),
+    );
+
+    renderAtQuote("Q-84502");
+
+    expect(await screen.findByText(/Proposal unavailable/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create Proposal" })).not.toBeInTheDocument();
+  });
 });
