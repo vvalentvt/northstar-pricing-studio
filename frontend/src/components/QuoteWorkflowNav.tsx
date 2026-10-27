@@ -27,7 +27,10 @@ export function QuoteWorkflowNav({ quoteId, current }: QuoteWorkflowNavProps) {
       {STEPS.map((step, index) => (
         <span className={styles.item} key={step.key}>
           {step.key === current ? (
-            <span className={styles.current}>{step.label}</span>
+            <span className={styles.current}>
+              <span className={styles.currentDot} aria-hidden="true" />
+              {step.label}
+            </span>
           ) : (
             <Link
               to={`/quotes/${encodeURIComponent(quoteId)}/${step.path}`}
@@ -36,7 +39,11 @@ export function QuoteWorkflowNav({ quoteId, current }: QuoteWorkflowNavProps) {
               {step.label}
             </Link>
           )}
-          {index < STEPS.length - 1 ? <span className={styles.separator}>•</span> : null}
+          {index < STEPS.length - 1 ? (
+            <span className={styles.separator} aria-hidden="true">
+              →
+            </span>
+          ) : null}
         </span>
       ))}
     </nav>

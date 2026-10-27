@@ -65,7 +65,7 @@
   font-weight: 700;
   text-decoration: none;
   background: var(--ns-color-primary);
-  color: #ffffff;
+  color: var(--ns-color-on-accent);
 }
 
 .primaryAction:hover {

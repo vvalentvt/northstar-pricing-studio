@@ -13,7 +13,7 @@
   font-weight: 700;
   text-decoration: none;
   background: var(--ns-color-primary);
-  color: #ffffff;
+  color: var(--ns-color-on-accent);
 }
 
 .primaryAction:hover {
@@ -120,13 +120,17 @@
 
 .row {
   border-bottom: 1px solid var(--ns-color-border);
+  border-left: 2px solid transparent;
   text-decoration: none;
   color: var(--ns-color-text);
   font-size: 0.9rem;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
-.row:hover {
-  background: var(--ns-color-bg);
+.row:hover,
+.row:focus-visible {
+  background: var(--ns-color-primary-bg);
+  border-left-color: var(--ns-color-primary);
 }
 
 .customerName {
@@ -135,7 +139,8 @@
 
 .quoteId {
   color: var(--ns-color-text-muted);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--ns-font-family-mono);
+  font-size: 0.84rem;
 }
 
 .finalPrice {

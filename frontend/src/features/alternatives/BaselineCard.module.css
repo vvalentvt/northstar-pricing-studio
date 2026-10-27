@@ -2,7 +2,8 @@
   flex: 1 1 0;
   min-width: 220px;
   background: var(--ns-color-surface);
-  border: 1.5px solid var(--ns-color-text);
+  border: 1px solid var(--ns-color-border);
+  border-top: 3px solid var(--ns-color-ink);
   border-radius: var(--ns-radius-md);
   padding: var(--ns-space-md) var(--ns-space-lg) var(--ns-space-lg) var(--ns-space-lg);
   display: flex;

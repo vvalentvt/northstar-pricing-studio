@@ -3,15 +3,17 @@
   min-width: 220px;
   background: var(--ns-color-surface);
   border: 1px solid var(--ns-color-border);
+  border-top: 3px solid transparent;
   border-radius: var(--ns-radius-md);
   padding: var(--ns-space-md) var(--ns-space-lg) var(--ns-space-lg) var(--ns-space-lg);
   display: flex;
   flex-direction: column;
+  transition: border-color 120ms ease;
 }
 
 .cardSelected {
-  border: 1.5px solid var(--ns-color-primary);
-  box-shadow: 0 0 0 3px var(--ns-color-primary-bg);
+  border-color: var(--ns-color-primary);
+  border-top-color: var(--ns-color-primary);
 }
 
 .eyebrowRow {
@@ -115,4 +117,8 @@
   background: var(--ns-color-primary-bg);
   border-color: var(--ns-color-primary);
   color: var(--ns-color-primary-text);
+}
+
+.selectButtonSelected::before {
+  content: "✓ ";
 }

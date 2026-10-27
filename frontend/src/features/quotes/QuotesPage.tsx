@@ -81,8 +81,8 @@ export function QuotesPage() {
         <div className={styles.emptyState}>
           <p className={styles.emptyTitle}>No quotes yet</p>
           <p className={styles.emptyBody}>
-            Create a quote to start pricing a deal, or search for a configuration that fits a
-            target budget.
+            Create your first pricing decision to get started, or search for a configuration
+            that fits a target budget.
           </p>
           <div className={styles.emptyActions}>
             <Link to="/quotes/new/setup" className={styles.primaryAction}>

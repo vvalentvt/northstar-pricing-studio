@@ -50,7 +50,7 @@
 
 .primaryButton {
   background: var(--ns-color-primary);
-  color: #ffffff;
+  color: var(--ns-color-on-accent);
   border: none;
   border-radius: var(--ns-radius-sm);
   padding: 11px 22px;

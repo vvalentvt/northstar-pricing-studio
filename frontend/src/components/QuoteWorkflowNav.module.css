@@ -18,6 +18,7 @@
   color: var(--ns-color-text-muted);
   font-weight: 600;
   text-decoration: none;
+  transition: color 120ms ease;
 }
 
 .link:hover {
@@ -25,10 +26,21 @@
 }
 
 .current {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--ns-color-text);
   font-weight: 800;
 }
 
+.currentDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ns-color-primary);
+}
+
 .separator {
   color: var(--ns-color-border);
+  font-size: 0.78rem;
 }

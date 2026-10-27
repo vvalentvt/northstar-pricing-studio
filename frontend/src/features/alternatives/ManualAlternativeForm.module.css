@@ -39,7 +39,7 @@
   font-weight: 700;
   cursor: pointer;
   background: var(--ns-color-primary);
-  color: #ffffff;
+  color: var(--ns-color-on-accent);
 }
 
 .saveButton:disabled {
