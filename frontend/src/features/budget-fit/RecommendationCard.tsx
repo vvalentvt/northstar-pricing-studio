@@ -7,6 +7,12 @@ interface RecommendationCardProps {
   recommendation: Recommendation;
   added: boolean;
   onToggleAdd: (id: string) => void;
+  /** True while this specific recommendation's add action is in
+   * flight (quote-linked mode only -- standalone mode's add is
+   * synchronous/local). */
+  pending?: boolean;
+  addLabel?: string;
+  addedLabel?: string;
 }
 
 /**
@@ -18,7 +24,14 @@ interface RecommendationCardProps {
  * Recommended gets a restrained blue accent, never green -- green stays
  * reserved for "within authority" pricing state.
  */
-export function RecommendationCard({ recommendation, added, onToggleAdd }: RecommendationCardProps) {
+export function RecommendationCard({
+  recommendation,
+  added,
+  onToggleAdd,
+  pending = false,
+  addLabel = "Add to Compare",
+  addedLabel = "Added to Compare",
+}: RecommendationCardProps) {
   const cardClassName = recommendation.isRecommended
     ? `${styles.card} ${styles.cardRecommended}`
     : styles.card;
@@ -73,9 +86,9 @@ export function RecommendationCard({ recommendation, added, onToggleAdd }: Recom
         type="button"
         className={added ? `${styles.actionButton} ${styles.actionButtonAdded}` : styles.actionButton}
         onClick={() => onToggleAdd(recommendation.id)}
-        disabled={added}
+        disabled={added || pending}
       >
-        {added ? "Added to Compare" : "Add to Compare"}
+        {added ? addedLabel : pending ? "Adding…" : addLabel}
       </button>
     </article>
   );
