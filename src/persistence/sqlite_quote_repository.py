@@ -16,6 +16,7 @@ against current pricing rules.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -26,6 +27,7 @@ from quotes import (
     NegotiationContext,
     PricingSnapshot,
     Quote,
+    QuoteSummary,
     QuoteVersion,
     QuoteVersionSource,
 )
@@ -209,6 +211,45 @@ class SQLiteQuoteRepository:
                     f"got {version.version_number}"
                 )
             self._insert_version(conn, quote_id, version)
+
+    def list_recent(self, limit: int = 50) -> tuple[QuoteSummary, ...]:
+        # One join against each quote's own latest version -- reads only
+        # the pricing_snapshot_json column (never the full snapshot
+        # payload a GET /api/quotes/{id} loads) and pulls just the two
+        # fields a listing row needs out of it.
+        conn = self._raw_connect()
+        try:
+            rows = conn.execute(
+                "SELECT q.quote_id, q.customer_name, q.owner, q.status, q.created_at, "
+                "       v.version_number, v.pricing_snapshot_json "
+                "FROM quotes q "
+                "JOIN quote_versions v ON v.quote_id = q.quote_id "
+                "WHERE v.version_number = ("
+                "    SELECT MAX(version_number) FROM quote_versions WHERE quote_id = q.quote_id"
+                ") "
+                "ORDER BY q.created_at DESC, q.quote_id DESC "
+                "LIMIT ?",
+                (limit,),
+            ).fetchall()
+        finally:
+            conn.close()
+
+        summaries = []
+        for quote_id, customer_name, owner, status, created_at, version_number, pricing_json in rows:
+            pricing = json.loads(pricing_json)
+            summaries.append(
+                QuoteSummary(
+                    quote_id=quote_id,
+                    customer_name=customer_name,
+                    owner=owner,
+                    status=status,
+                    created_at=created_at,
+                    current_version_number=version_number,
+                    final_price=pricing["final_price"],
+                    approval_required=pricing["approval_required"],
+                )
+            )
+        return tuple(summaries)
 
     @staticmethod
     def _insert_version(conn: sqlite3.Connection, quote_id: str, version: QuoteVersion) -> None:

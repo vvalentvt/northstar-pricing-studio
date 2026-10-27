@@ -15,7 +15,7 @@ from fastapi import HTTPException
 from budget_fit import BudgetFitField, BudgetFitRecommendation
 from pricing_engine import QuoteRequest
 from proposals import Proposal
-from quotes import ConfigurationSnapshot, NegotiationContext, PricingSnapshot, Scenario
+from quotes import ConfigurationSnapshot, NegotiationContext, PricingSnapshot, QuoteSummary, Scenario
 
 from api.models import (
     AdjustmentDto,
@@ -26,16 +26,16 @@ from api.models import (
     ProposalNarrativeDto,
     ProposalResponseDto,
     ProposalSummaryDto,
+    QuoteSummaryDto,
     RecommendationDto,
     ScenarioDto,
 )
 
 #: Human-readable labels for BudgetFitField values -- presentation only.
-#: Deliberately not imported from app/app_state.py or
-#: src/application/scenarios.py: the API depends only on src/ (see
-#: ADR-003), never on Streamlit's own application layer, so this small
-#: label dict is duplicated rather than coupling the two presentation
-#: layers together.
+#: Deliberately not imported from src/application/scenarios.py: the API
+#: depends only on src/ (see ADR-003), never on another presentation
+#: layer's formatting choices, so this small label dict is kept local
+#: rather than coupling two presentation layers together.
 BUDGET_FIT_FIELD_LABELS: dict[str, str] = {
     "tier": "Tier",
     "users": "Users",
@@ -169,6 +169,19 @@ def pricing_snapshot_to_dto(pricing: PricingSnapshot) -> PricingSnapshotDto:
         selfServiceThresholdPercent=pricing.self_service_threshold_percent,
         maxAllowedDiscountPercent=pricing.max_allowed_discount_percent,
         calculatedAt=pricing.calculated_at.isoformat(),
+    )
+
+
+def quote_summary_to_dto(summary: QuoteSummary) -> QuoteSummaryDto:
+    return QuoteSummaryDto(
+        quoteId=summary.quote_id,
+        customerName=summary.customer_name,
+        owner=summary.owner,
+        status=summary.status,
+        createdAt=summary.created_at.isoformat(),
+        currentVersionNumber=summary.current_version_number,
+        finalPrice=summary.final_price,
+        approvalRequired=summary.approval_required,
     )
 
 

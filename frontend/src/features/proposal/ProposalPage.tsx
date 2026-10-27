@@ -4,6 +4,7 @@ import { ApiError } from "../../api/client";
 import { getQuote } from "../../api/quotes";
 import { createProposal, downloadProposalPdf, listProposalsForQuote } from "../../api/proposals";
 import { PageHeader } from "../../components/PageHeader";
+import { QuoteWorkflowNav } from "../../components/QuoteWorkflowNav";
 import type { QuoteDetail } from "../../types/quote";
 import type { Proposal, ProposalNarrative, ProposalSummary } from "../../types/proposal";
 import { buildDefaultNarrative } from "./defaultNarrative";
@@ -142,6 +143,7 @@ export function ProposalPage() {
         title="Create Proposal"
         contextLine={`${quote.customerName} • Quote ${quote.quoteId} • Pricing version v${quote.currentVersion.versionNumber}`}
       />
+      <QuoteWorkflowNav quoteId={quote.quoteId} current="proposal" />
 
       {approvalRequired ? (
         <div className={styles.approvalLockedState}>

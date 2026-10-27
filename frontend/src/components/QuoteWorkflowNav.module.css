@@ -1,0 +1,34 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 var(--ns-space-lg) 0;
+  padding-bottom: var(--ns-space-md);
+  border-bottom: 1px solid var(--ns-color-border);
+  font-size: 0.86rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link {
+  color: var(--ns-color-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--ns-color-primary);
+}
+
+.current {
+  color: var(--ns-color-text);
+  font-weight: 800;
+}
+
+.separator {
+  color: var(--ns-color-border);
+}

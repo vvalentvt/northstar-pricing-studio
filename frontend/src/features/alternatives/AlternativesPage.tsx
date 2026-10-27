@@ -10,6 +10,7 @@ import {
 } from "../../api/alternatives";
 import { getPricingOptions } from "../../api/pricing";
 import { PageHeader } from "../../components/PageHeader";
+import { QuoteWorkflowNav } from "../../components/QuoteWorkflowNav";
 import type { PricingOptions } from "../../types/pricing";
 import type { AlternativesWorkspace } from "../../types/alternatives";
 import type { QuoteDraftConfiguration } from "../quote-draft/types";
@@ -168,6 +169,7 @@ export function AlternativesPage() {
         title="Explore Alternatives"
         contextLine={`${workspace.customerName} • Quote ${workspace.quoteId} • Baseline v${workspace.baseVersionNumber}`}
       />
+      <QuoteWorkflowNav quoteId={workspace.quoteId} current="alternatives" />
 
       {workspace.stale ? (
         <div className={styles.staleBanner}>

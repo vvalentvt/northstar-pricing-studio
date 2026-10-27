@@ -155,6 +155,21 @@ describe("AlternativesPage", () => {
     expect(screen.getByText(/Baseline v1/)).toBeInTheDocument();
   });
 
+  it("shows the workflow nav with Alternatives as the current step and links back to Review Pricing", async () => {
+    mockGetAlternatives.mockResolvedValue(workspaceFixture());
+
+    renderAtQuote("Q-84502");
+
+    await screen.findByText(/Baseline v1/);
+    const nav = screen.getByRole("navigation", { name: "Quote workflow" });
+    expect(nav).toHaveTextContent("Alternatives");
+    const reviewLink = screen.getByRole("link", { name: "Review Pricing" });
+    expect(reviewLink).toHaveAttribute("href", "/quotes/Q-84502/review");
+
+    fireEvent.click(reviewLink);
+    expect(await screen.findByText("REVIEW PAGE")).toBeInTheDocument();
+  });
+
   it("renders the baseline price", async () => {
     mockGetAlternatives.mockResolvedValue(workspaceFixture());
 

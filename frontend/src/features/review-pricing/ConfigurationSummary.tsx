@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatCoverage, formatTier } from "../../utils/format";
 import type { QuoteConfiguration } from "../../types/quote";
 import styles from "./ConfigurationSummary.module.css";
@@ -33,7 +33,7 @@ export function ConfigurationSummary({ configuration }: ConfigurationSummaryProp
   }
 
   return (
-    <Panel label="Configuration">
+    <Section label="Configuration" className={styles.section}>
       <div className={styles.list}>
         {rows.map((row) => (
           <div className={styles.row} key={row.label}>
@@ -42,6 +42,6 @@ export function ConfigurationSummary({ configuration }: ConfigurationSummaryProp
           </div>
         ))}
       </div>
-    </Panel>
+    </Section>
   );
 }

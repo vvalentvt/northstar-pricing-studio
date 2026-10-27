@@ -1,7 +1,16 @@
-.panel {
+.section {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding-left: var(--ns-space-xl);
+  border-left: 1px solid var(--ns-color-border);
+}
+
+@media (max-width: 1280px) {
+  .section {
+    padding-left: 0;
+    border-left: none;
+  }
 }
 
 .calloutOk,

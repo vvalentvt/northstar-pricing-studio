@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatCoverage, formatTier } from "../../utils/format";
 import type { PricingOptions } from "../../types/pricing";
 import type { QuoteDraftConfiguration } from "../quote-draft/types";
@@ -25,8 +25,8 @@ export function ConfigurationForm({ options, configuration, onChange }: Configur
     configuration.requestedDiscountPercent > options.discountPolicy.selfServiceThresholdPercent;
 
   return (
-    <div className={styles.panelStack}>
-      <Panel label="Product &amp; Scope">
+    <div className={styles.sectionStack}>
+      <Section label="Product &amp; Scope">
         <div className={styles.row}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="config-tier">
@@ -97,9 +97,9 @@ export function ConfigurationForm({ options, configuration, onChange }: Configur
             </select>
           </div>
         </div>
-      </Panel>
+      </Section>
 
-      <Panel label="Services">
+      <Section label="Services">
         <div className={styles.row}>
           <label className={styles.checkboxField}>
             <input
@@ -118,9 +118,9 @@ export function ConfigurationForm({ options, configuration, onChange }: Configur
             Implementation services
           </label>
         </div>
-      </Panel>
+      </Section>
 
-      <Panel label="Commercial Terms">
+      <Section label="Commercial Terms">
         <div className={styles.field}>
           <label className={styles.label} htmlFor="config-contract-term">
             Contract term
@@ -161,7 +161,7 @@ export function ConfigurationForm({ options, configuration, onChange }: Configur
               : `Self-service authority: up to ${options.discountPolicy.selfServiceThresholdPercent}%`}
           </p>
         </div>
-      </Panel>
+      </Section>
     </div>
   );
 }

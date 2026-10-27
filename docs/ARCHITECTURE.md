@@ -15,7 +15,7 @@ The architecture should demonstrate maintainability without simulating enterpris
 3. **Saved pricing decisions are versioned.** Negotiation creates new quote versions/scenarios rather than rewriting history.
 4. **Optimization sits above pricing.** Budget Fit proposes configurations; it does not contain a second pricing engine.
 5. **Proposal generation consumes an approved snapshot.** It does not calculate a fresh price from mutable UI state.
-6. **Domain logic is independent of Streamlit.** Streamlit orchestrates user interaction and presentation.
+6. **Domain logic is independent of presentation.** The React UI and the FastAPI boundary orchestrate user interaction and HTTP translation only.
 7. **Rules are configuration, not UI code.** Changeable pricing behavior is externalized to YAML where appropriate.
 8. **Explainability is a domain concern.** Price adjustments and optimizer rankings should emit structured reasons.
 9. **Build complexity only when earned.** Start with in-memory services and bounded enumeration before database/event/solver complexity.
@@ -33,14 +33,14 @@ The architecture should demonstrate maintainability without simulating enterpris
             v
 +------------------------------+
 | Northstar Pricing Studio     |
-| Streamlit application        |
+| React SPA + FastAPI          |
 +------------------------------+
             |
             +----> Versioned pricing rules (YAML)
             |
-            +----> Persistence [later: SQLite/DuckDB]
+            +----> Persistence (SQLite)
             |
-            +----> Proposal artifact [later: HTML/PDF]
+            +----> Proposal artifact (ReportLab PDF)
 ```
 
 Northstar is intentionally modeled as a self-contained internal application. CRM integration, identity, notifications, and external document storage are future integration boundaries rather than MVP dependencies.
@@ -51,8 +51,14 @@ Northstar is intentionally modeled as a self-contained internal application. CRM
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         Streamlit UI                                 │
-│  Deal Setup | Configure | Review | Budget Fit | Compare | Proposal   │
+│                      React SPA (frontend/)                           │
+│  Quotes | Deal Setup | Configure | Review | Alternatives | Proposal  │
+└──────────────────────────────┬───────────────────────────────────────┘
+                               │  HTTP (JSON + typed DTOs)
+                               v
+┌──────────────────────────────────────────────────────────────────────┐
+│                    FastAPI boundary (api/)                           │
+│       routers + DTOs -- translation only, no pricing/domain logic    │
 └──────────────────────────────┬───────────────────────────────────────┘
                                │
                                v
@@ -496,8 +502,6 @@ quote_versions   -- one row per QuoteVersion (composite PK: quote_id, version_nu
 ```
 
 Rows are never updated — `quote_versions` is append-only, matching the domain's own immutable `QuoteVersion` history. This is deliberately **not** a single mutable JSON blob per quote: the two-table shape mirrors the domain's actual one-Quote-to-many-QuoteVersions relationship.
-
-This is scoped to the API path only. Streamlit (`app/`) remains entirely `st.session_state`-backed and has not been migrated; the two Quote stores are independent during the ongoing frontend migration (ADR-003).
 
 **Implemented (Phase 6E — see [ADR-005](adr/005-negotiation-workspace-persistence.md)):** the negotiation workspace is also durable behind the API, but as explicitly *mutable* exploratory state, not commercial history:
 

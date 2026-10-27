@@ -1,8 +1,13 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--ns-space-lg);
   max-width: 560px;
+}
+
+.commercialContext {
+  margin-top: var(--ns-space-lg);
+  padding-top: var(--ns-space-lg);
+  border-top: 1px solid var(--ns-color-border);
 }
 
 .field {
@@ -83,6 +88,7 @@
 }
 
 .actionRow {
+  margin-top: var(--ns-space-xl);
   display: flex;
   justify-content: flex-end;
 }

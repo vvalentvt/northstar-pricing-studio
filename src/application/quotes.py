@@ -1,11 +1,9 @@
 """Presentation-neutral quote-creation orchestration.
 
 Pure functions over the existing domain (Quote, PricingSnapshot,
-QuoteRequest) -- no Streamlit, no HTTP, no persistence. Both the
-Streamlit app (app/app_state.py) and the API (api/) call these so the
-quote-commit algorithm is never duplicated between presentation layers;
-each still owns its own transport/session concerns (DealContext,
-ConfigurationInput, DTOs, ...) and translates into the plain
+QuoteRequest) -- no HTTP, no persistence. The API (api/) calls these so
+the quote-commit algorithm lives in exactly one place; the API owns its
+own transport concerns (DTOs, ...) and translates into the plain
 QuoteRequest / QuoteResult shapes these functions take.
 """
 

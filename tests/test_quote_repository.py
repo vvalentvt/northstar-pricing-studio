@@ -305,6 +305,58 @@ def test_schema_is_idempotent_across_repeated_init(tmp_path):
     assert repo.get(quote.quote_id) == quote
 
 
+def test_list_recent_returns_most_recently_created_first(tmp_path):
+    repo = _repo(tmp_path)
+    import time
+
+    first = _quote(quote_id="Q-first")
+    repo.create(first)
+    time.sleep(0.05)
+    second = _quote(quote_id="Q-second")
+    repo.create(second)
+
+    summaries = repo.list_recent()
+
+    assert [s.quote_id for s in summaries] == ["Q-second", "Q-first"]
+
+
+def test_list_recent_reflects_current_version_not_v1(tmp_path):
+    repo = _repo(tmp_path)
+    quote = _quote(quote_id="Q-revised")
+    repo.create(quote)
+
+    revised_configuration = _configuration(requested_discount_percent=10)
+    revised_snapshot = _snapshot(revised_configuration)
+    new_version = quote.add_version(
+        configuration=revised_configuration,
+        pricing_snapshot=revised_snapshot,
+        source=QuoteVersionSource.MANUAL_REVISION,
+    )
+    repo.append_version(quote.quote_id, new_version, expected_current_version=1)
+
+    [summary] = repo.list_recent()
+
+    assert summary.current_version_number == 2
+    assert summary.final_price == revised_snapshot.final_price
+    assert summary.approval_required == revised_snapshot.approval_required
+
+
+def test_list_recent_respects_limit(tmp_path):
+    repo = _repo(tmp_path)
+    for i in range(5):
+        repo.create(_quote(quote_id=f"Q-{i:05d}"))
+
+    summaries = repo.list_recent(limit=2)
+
+    assert len(summaries) == 2
+
+
+def test_list_recent_empty_when_no_quotes(tmp_path):
+    repo = _repo(tmp_path)
+
+    assert repo.list_recent() == ()
+
+
 def test_foreign_keys_are_enforced(tmp_path):
     db_path = tmp_path / "northstar.db"
     SQLiteQuoteRepository(db_path)

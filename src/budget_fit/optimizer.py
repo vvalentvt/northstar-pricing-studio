@@ -103,7 +103,7 @@ def find_budget_fit(request: BudgetFitRequest, rules: dict) -> BudgetFitResult:
 
     `rules` is passed alongside the request (not embedded in it), matching
     calculate_quote's own (request, rules) shape used throughout the
-    pricing engine and app_state.py.
+    pricing engine.
     """
     baseline = request.baseline_configuration
     constraints = request.constraints

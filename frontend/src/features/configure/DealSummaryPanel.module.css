@@ -1,5 +1,7 @@
-.panel {
+.section {
   margin-bottom: var(--ns-space-lg);
+  padding-bottom: var(--ns-space-lg);
+  border-bottom: 1px solid var(--ns-color-border);
 }
 
 .customerName {
