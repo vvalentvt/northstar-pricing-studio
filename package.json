@@ -6,7 +6,8 @@
     "dev:web": "npm --prefix frontend run dev",
     "test": ".venv\\Scripts\\python.exe -m pytest tests/ -q",
     "test:web": "npm --prefix frontend test",
-    "build": "npm --prefix frontend run build"
+    "build": "npm --prefix frontend run build",
+    "validate": "npm run build && npm run test:web && npm test"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

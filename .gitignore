@@ -9,3 +9,10 @@ data/*.duckdb
 data/*.db
 data/*.db-wal
 data/*.db-shm
+*.log
+*.pdf
+.vscode/
+.idea/
+Thumbs.db
+.claude/
+frontend/dist/
