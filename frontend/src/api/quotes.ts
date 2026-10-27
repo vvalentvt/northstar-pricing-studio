@@ -65,7 +65,7 @@ function mapVersionSummary(dto: QuoteVersionSummaryDto): VersionSummary {
   };
 }
 
-function mapQuote(dto: QuoteResponseDto): QuoteDetail {
+export function mapQuote(dto: QuoteResponseDto): QuoteDetail {
   return {
     quoteId: dto.quoteId,
     customerName: dto.customerName,

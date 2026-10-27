@@ -1,12 +1,23 @@
 import type { ConstraintState, CurrentConfiguration, Recommendation } from "../types/budgetFit";
 import { apiPost } from "./client";
-import type { BudgetFitRequestDto, BudgetFitResponseDto, RecommendationDto } from "./types";
+import type {
+  BudgetFitRequestDto,
+  BudgetFitResponseDto,
+  QuoteLinkedBudgetFitRequestDto,
+  QuoteLinkedBudgetFitResponseDto,
+  RecommendationDto,
+} from "./types";
 
 export interface BudgetFitOutcome {
   baselinePrice: number;
   feasibleCandidateCount: number;
   recommendations: Recommendation[];
   noFitReason: string | null;
+}
+
+export interface QuoteLinkedBudgetFitOutcome extends BudgetFitOutcome {
+  runId: string;
+  baseVersionNumber: number;
 }
 
 const OPTION_LABELS = ["A", "B", "C", "D", "E"];
@@ -91,6 +102,43 @@ export async function findBudgetFit(
   const response = await apiPost<BudgetFitResponseDto>("/api/budget-fit", requestDto);
 
   return {
+    baselinePrice: response.baselinePrice,
+    feasibleCandidateCount: response.feasibleCandidateCount,
+    noFitReason: response.noFitReason,
+    recommendations: response.recommendations.map(mapRecommendation),
+  };
+}
+
+/**
+ * Quote-linked Budget Fit: the baseline always comes from the Quote's
+ * own current committed configuration (resolved server-side, see
+ * api/routers/alternatives.py) -- this never sends a baseline
+ * configuration itself. Returns a runId so a chosen recommendation can
+ * later be added to Alternatives (see addBudgetFitAlternative in
+ * api/alternatives.ts) without recalculation.
+ */
+export async function findQuoteLinkedBudgetFit(
+  quoteId: string,
+  constraints: ConstraintState,
+): Promise<QuoteLinkedBudgetFitOutcome> {
+  const requestDto: QuoteLinkedBudgetFitRequestDto = {
+    targetBudget: constraints.targetBudget,
+    constraints: {
+      lockedFields: buildLockedFields(constraints),
+      minimumUsers: constraints.minimumUsersEnabled ? constraints.minimumUsers : null,
+      requiredPremiumSupport: constraints.requiredPremiumSupport,
+      requiredImplementationServices: constraints.requiredImplementationServices,
+    },
+    maxRecommendations: 3,
+  };
+  const response = await apiPost<QuoteLinkedBudgetFitResponseDto>(
+    `/api/quotes/${encodeURIComponent(quoteId)}/budget-fit`,
+    requestDto,
+  );
+
+  return {
+    runId: response.runId,
+    baseVersionNumber: response.baseVersionNumber,
     baselinePrice: response.baselinePrice,
     feasibleCandidateCount: response.feasibleCandidateCount,
     noFitReason: response.noFitReason,

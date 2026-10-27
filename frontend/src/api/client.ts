@@ -59,3 +59,17 @@ export async function apiPost<TResponse>(path: string, body: unknown): Promise<T
   }
   return handleResponse<TResponse>(response);
 }
+
+export async function apiPut<TResponse>(path: string, body: unknown): Promise<TResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(0, "Unable to reach the Northstar API.");
+  }
+  return handleResponse<TResponse>(response);
+}
