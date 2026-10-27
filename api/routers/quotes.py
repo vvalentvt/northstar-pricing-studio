@@ -1,10 +1,9 @@
 """Quote HTTP endpoints -- the durable-persistence boundary.
 
-Thin translation only: v1 is always calculated server-side via the same
-shared application.create_quote(...) that app/app_state.py's Streamlit
-commit flow now delegates to (see src/application/quotes.py), so the
-quote-commit algorithm is never duplicated between presentation layers
-and a client can never supply its own PricingSnapshot. Persistence
+Thin translation only: v1 is always calculated server-side via the
+shared application.create_quote(...) (see src/application/quotes.py),
+so the quote-commit algorithm lives in exactly one place and a client
+can never supply its own PricingSnapshot. Persistence
 (SQLiteQuoteRepository) stores exactly the domain decisions Quote/
 QuoteVersion already made -- no pricing, approval, or version logic is
 reimplemented here.

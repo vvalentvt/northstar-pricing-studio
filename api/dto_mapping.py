@@ -32,11 +32,10 @@ from api.models import (
 )
 
 #: Human-readable labels for BudgetFitField values -- presentation only.
-#: Deliberately not imported from app/app_state.py or
-#: src/application/scenarios.py: the API depends only on src/ (see
-#: ADR-003), never on Streamlit's own application layer, so this small
-#: label dict is duplicated rather than coupling the two presentation
-#: layers together.
+#: Deliberately not imported from src/application/scenarios.py: the API
+#: depends only on src/ (see ADR-003), never on another presentation
+#: layer's formatting choices, so this small label dict is kept local
+#: rather than coupling two presentation layers together.
 BUDGET_FIT_FIELD_LABELS: dict[str, str] = {
     "tier": "Tier",
     "users": "Users",

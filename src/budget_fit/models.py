@@ -52,7 +52,7 @@ class BudgetFitRequest(BaseModel):
     in the existing pricing code.
 
     baseline_configuration is an existing immutable ConfigurationSnapshot
-    (never live Streamlit state), so a search is always anchored to a
+    (never live in-memory UI state), so a search is always anchored to a
     specific committed or evaluated commercial decision.
     """
 

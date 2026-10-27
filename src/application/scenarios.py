@@ -1,9 +1,10 @@
 """Presentation-neutral scenario / negotiation-workspace orchestration.
 
-Extracted from app/app_state.py so both app/ (Streamlit) and api/
-(FastAPI) call the exact same scenario-lifecycle functions rather than
-each carrying its own copy -- the same pattern already used for quote
-creation (see application/quotes.py).
+The shared scenario-lifecycle functions api/ (FastAPI) calls -- originally
+extracted here so a now-retired Streamlit prototype and the API could
+call the exact same functions rather than each carrying its own copy,
+the same pattern already used for quote creation (see
+application/quotes.py).
 
 Domain rules stay in src/quotes/scenarios.py (Scenario, ScenarioWorkspace,
 and ScenarioWorkspace.promote_selected's own validation) and
