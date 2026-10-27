@@ -27,3 +27,17 @@ button {
 input {
   font-family: inherit;
 }
+
+/* One consistent, branded focus treatment across every interactive
+ * element -- added, never removing a browser's native focus ring
+ * (see Phase 7B spec section 48: focus states must be preserved or
+ * improved, not just restyled away). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ns-color-focus);
+  outline-offset: 2px;
+}

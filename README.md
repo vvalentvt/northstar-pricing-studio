@@ -1,6 +1,8 @@
 # Northstar Pricing Studio
 
-A governed commercial pricing workspace for B2B SaaS: configurable pricing, explainable price breakdowns, budget-constrained negotiation, approval authority, and durable proposal generation — built as a flagship portfolio case study.
+**A configurable B2B pricing and negotiation workspace built around explainable pricing, immutable quote history, Budget Fit optimization, and durable proposal generation.**
+
+A flagship portfolio case study exploring how configuration, pricing authority, negotiation, and proposal generation become one governed commercial decision system rather than six disconnected tools.
 
 > **Portfolio note:** Northstar Analytics is fictional. This repository does not contain employer data, source code, pricing rules, customer information, terminology, or proprietary business logic.
 
