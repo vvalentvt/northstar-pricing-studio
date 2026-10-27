@@ -242,3 +242,30 @@ def test_footer_carries_the_northstar_brand_name():
     text = _extract_text(pdf_bytes)
 
     assert "NORTHSTAR PRICING STUDIO" in text
+
+
+def test_pricing_breakdown_never_splits_across_a_page_boundary():
+    """A proposal long enough to push the Pricing section onto a later
+    page must move the whole section together -- Base Price and Final
+    Price must always land on the same page, never a table split mid-
+    breakdown (the Phase 7B visual QC regression this guards)."""
+    many_adjustments = tuple(
+        AdjustmentSnapshot(name=f"Adjustment {i}", amount=1000 + i, explanation="x")
+        for i in range(12)
+    )
+    pdf_bytes = _render(
+        _snapshot(
+            pricing_snapshot=_pricing(
+                adjustments=many_adjustments, subtotal_before_discount=100000, final_price=100000
+            ),
+            narrative=_narrative(commercial_notes="Notes go here."),
+        )
+    )
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) >= 2
+
+    page_with_final_price = next(
+        page for page in reader.pages if "Final Price" in page.extract_text()
+    )
+    assert "Base Price" in page_with_final_price.extract_text()
+    assert "Adjustment 0" in page_with_final_price.extract_text()

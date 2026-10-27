@@ -22,7 +22,7 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.graphics.shapes import Drawing, Polygon
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .models import ProposalSnapshot
 
@@ -219,7 +219,6 @@ class ReportLabProposalRenderer:
         story.append(Paragraph(_escape(snapshot.narrative.executive_summary), styles["body"]))
         story.append(Spacer(1, 20))
 
-        story.append(_numbered_heading("02", "Proposed Solution", styles["heading"]))
         config = snapshot.configuration_snapshot
         solution_rows = [
             ["Tier", _format_tier(config.tier)],
@@ -231,7 +230,7 @@ class ReportLabProposalRenderer:
             ["Contract Term", _format_contract_months(config.contract_months)],
             ["Commercial Context", _format_deal_context(config.renewal)],
         ]
-        solution_table = Table(solution_rows, colWidths=[2.3 * inch, 3.4 * inch])
+        solution_table = Table(solution_rows, colWidths=[2.3 * inch, 3.4 * inch], splitByRow=0)
         solution_table.setStyle(
             TableStyle(
                 [
@@ -246,10 +245,13 @@ class ReportLabProposalRenderer:
                 ]
             )
         )
-        story.append(solution_table)
+        story.append(
+            KeepTogether(
+                [_numbered_heading("02", "Proposed Solution", styles["heading"]), solution_table]
+            )
+        )
         story.append(Spacer(1, 20))
 
-        story.append(_numbered_heading("03", "Pricing", styles["heading"]))
         pricing = snapshot.pricing_snapshot
         price_rows: list[list[str]] = [["Base Price", _format_money(pricing.base_price)]]
         for adjustment in pricing.adjustments:
@@ -258,7 +260,11 @@ class ReportLabProposalRenderer:
         if pricing.discount_amount:
             price_rows.append(["Discount", _format_money(-pricing.discount_amount, signed=True)])
 
-        price_table = Table(price_rows, colWidths=[3.7 * inch, 2.0 * inch])
+        # splitByRow=0: this table must never split mid-row across a
+        # page boundary -- a "Base Price ... Subtotal" table missing
+        # its own Final Price on the next page reads as broken, not
+        # just awkward (see Phase 7B spec section 31).
+        price_table = Table(price_rows, colWidths=[3.7 * inch, 2.0 * inch], splitByRow=0)
         price_table.setStyle(
             TableStyle(
                 [
@@ -271,11 +277,11 @@ class ReportLabProposalRenderer:
                 ]
             )
         )
-        story.append(price_table)
-        story.append(Spacer(1, 10))
 
         final_table = Table(
-            [["Final Price", _format_money(pricing.final_price)]], colWidths=[3.7 * inch, 2.0 * inch]
+            [["Final Price", _format_money(pricing.final_price)]],
+            colWidths=[3.7 * inch, 2.0 * inch],
+            splitByRow=0,
         )
         final_table.setStyle(
             TableStyle(
@@ -289,7 +295,21 @@ class ReportLabProposalRenderer:
                 ]
             )
         )
-        story.append(final_table)
+
+        # The whole "Pricing" section -- heading through Final Price --
+        # moves to the next page as one block rather than splitting:
+        # Final Price must never be orphaned away from the breakdown
+        # that explains it.
+        story.append(
+            KeepTogether(
+                [
+                    _numbered_heading("03", "Pricing", styles["heading"]),
+                    price_table,
+                    Spacer(1, 10),
+                    final_table,
+                ]
+            )
+        )
         story.append(Spacer(1, 26))
 
         if snapshot.narrative.commercial_notes:
