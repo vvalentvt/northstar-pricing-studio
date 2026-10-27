@@ -11,9 +11,6 @@ see src/budget_fit for the actual optimizer.
 
 from __future__ import annotations
 
-from functools import lru_cache
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
@@ -24,21 +21,17 @@ from budget_fit import (
     BudgetFitResult,
     find_budget_fit,
 )
-from pricing_engine import load_rules
-from quotes import ConfigurationSnapshot
 
+from api.dependencies import get_pricing_rules
+from api.dto_mapping import configuration_dto_to_snapshot, configuration_snapshot_to_dto
 from api.models import (
     BudgetFitRequestDto,
     BudgetFitResponseDto,
-    ConfigurationDto,
     FieldChangeDto,
     RecommendationDto,
 )
 
 router = APIRouter(prefix="/api", tags=["budget-fit"])
-
-ROOT = Path(__file__).resolve().parents[2]
-RULES_PATH = ROOT / "config" / "pricing_rules.yaml"
 
 #: Human-readable labels for BudgetFitField values -- presentation only.
 #: Deliberately not imported from app/app_state.py: the API depends only
@@ -55,44 +48,6 @@ FIELD_LABELS: dict[str, str] = {
     "premium_support": "Premium support",
     "implementation_services": "Implementation services",
 }
-
-
-@lru_cache(maxsize=1)
-def get_rules() -> dict:
-    """The same canonical pricing-rule loader the Streamlit app uses --
-    never a second pricing configuration source. Cached because the
-    YAML file doesn't change within a running process."""
-    return load_rules(RULES_PATH)
-
-
-def _configuration_dto_to_snapshot(dto: ConfigurationDto) -> ConfigurationSnapshot:
-    return ConfigurationSnapshot(
-        customer_name=dto.customer_name,
-        tier=dto.tier,
-        users=dto.users,
-        coverage=dto.coverage,
-        history_years=dto.history_years,
-        contract_months=dto.contract_months,
-        premium_support=dto.premium_support,
-        implementation_services=dto.implementation_services,
-        renewal=dto.renewal,
-        requested_discount_percent=dto.requested_discount_percent,
-    )
-
-
-def _snapshot_to_configuration_dto(snapshot: ConfigurationSnapshot) -> ConfigurationDto:
-    return ConfigurationDto(
-        customerName=snapshot.customer_name,
-        tier=snapshot.tier,
-        users=snapshot.users,
-        coverage=snapshot.coverage,
-        historyYears=snapshot.history_years,
-        contractMonths=snapshot.contract_months,
-        premiumSupport=snapshot.premium_support,
-        implementationServices=snapshot.implementation_services,
-        renewal=snapshot.renewal,
-        requestedDiscountPercent=snapshot.requested_discount_percent,
-    )
 
 
 def _parse_locked_fields(values: list[str]) -> frozenset[BudgetFitField]:
@@ -116,7 +71,7 @@ def _recommendation_to_dto(rec, target_budget: float) -> RecommendationDto:
         approvalRequired=rec.pricing_snapshot.approval_required,
         approvalReason=rec.pricing_snapshot.approval_reason,
         isBaseline=rec.is_baseline,
-        configuration=_snapshot_to_configuration_dto(rec.configuration_snapshot),
+        configuration=configuration_snapshot_to_dto(rec.configuration_snapshot),
         changedFields=[
             FieldChangeDto(
                 field=change.field.value,
@@ -149,14 +104,14 @@ def post_budget_fit(request: BudgetFitRequestDto) -> BudgetFitResponseDto:
     )
 
     try:
-        baseline = _configuration_dto_to_snapshot(request.baseline_configuration)
+        baseline = configuration_dto_to_snapshot(request.baseline_configuration)
         domain_request = BudgetFitRequest(
             target_budget=request.target_budget,
             baseline_configuration=baseline,
             constraints=constraints,
             max_recommendations=request.max_recommendations,
         )
-        result: BudgetFitResult = find_budget_fit(domain_request, get_rules())
+        result: BudgetFitResult = find_budget_fit(domain_request, get_pricing_rules())
     except (ValidationError, ValueError) as exc:
         # ValidationError: a domain-model constraint the DTO didn't
         # already mirror. ValueError: e.g. calculate_quote rejecting an

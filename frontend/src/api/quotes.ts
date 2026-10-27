@@ -1,11 +1,12 @@
 import type {
   AdjustmentDto,
+  ConfigurationDto,
   PricingSnapshotDto,
   QuoteResponseDto,
   QuoteVersionResponseDto,
   QuoteVersionSummaryDto,
 } from "./types";
-import { apiGet } from "./client";
+import { apiGet, apiPost } from "./client";
 import type {
   Adjustment,
   PricingDetail,
@@ -87,5 +88,24 @@ function mapQuote(dto: QuoteResponseDto): QuoteDetail {
  */
 export async function getQuote(quoteId: string): Promise<QuoteDetail> {
   const response = await apiGet<QuoteResponseDto>(`/api/quotes/${encodeURIComponent(quoteId)}`);
+  return mapQuote(response);
+}
+
+/**
+ * The one place the frontend commits a durable Quote. The server
+ * recalculates v1 canonically from `configuration` -- this never sends
+ * a previewed price back as the committed one (see ADR-004 and Phase
+ * 6D spec section 22: Quote creation is server-authoritative).
+ */
+export async function createQuote(
+  customerName: string,
+  owner: string,
+  configuration: ConfigurationDto,
+): Promise<QuoteDetail> {
+  const response = await apiPost<QuoteResponseDto>("/api/quotes", {
+    customerName,
+    owner,
+    configuration,
+  });
   return mapQuote(response);
 }

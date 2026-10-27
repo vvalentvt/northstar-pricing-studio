@@ -185,3 +185,27 @@ class QuoteResponseDto(BaseModel):
     created_at: str = Field(alias="createdAt")
     current_version: QuoteVersionResponseDto = Field(alias="currentVersion")
     version_history: list[QuoteVersionSummaryDto] = Field(alias="versionHistory")
+
+
+class DiscountPolicyDto(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    self_service_threshold_percent: float = Field(alias="selfServiceThresholdPercent")
+    max_allowed_discount_percent: float = Field(alias="maxAllowedDiscountPercent")
+
+
+class PricingOptionsResponseDto(BaseModel):
+    """GET /api/pricing/options response: the selectable pricing catalog,
+    derived live from config/pricing_rules.yaml via the canonical rules
+    loader -- never a second, frontend-maintained copy of the same
+    tiers/coverage/terms."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    rule_version: str = Field(alias="ruleVersion")
+    tiers: list[str]
+    coverage: list[str]
+    history_years: list[int] = Field(alias="historyYears")
+    contract_months: list[int] = Field(alias="contractMonths")
+    included_users: int = Field(alias="includedUsers")
+    discount_policy: DiscountPolicyDto = Field(alias="discountPolicy")

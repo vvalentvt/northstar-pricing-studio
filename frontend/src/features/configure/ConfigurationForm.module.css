@@ -1,0 +1,75 @@
+.panelStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ns-space-lg);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ns-space-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.select,
+.numberInput {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ns-color-text);
+}
+
+.helperText {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--ns-color-text-muted);
+}
+
+.discountRow {
+  display: flex;
+  align-items: center;
+  gap: var(--ns-space-md);
+}
+
+.discountSlider {
+  flex: 1;
+}
+
+.discountValue {
+  font-weight: 700;
+  color: var(--ns-color-text);
+  min-width: 42px;
+  text-align: right;
+}
+
+.authorityNote {
+  margin: 4px 0 0 0;
+  font-size: 0.78rem;
+  color: var(--ns-color-text-muted);
+}
+
+.authorityNoteAttention {
+  color: var(--ns-color-attention);
+}

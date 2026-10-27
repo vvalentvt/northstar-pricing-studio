@@ -1,0 +1,29 @@
+.panel {
+  margin-bottom: var(--ns-space-lg);
+}
+
+.customerName {
+  margin: 0 0 2px 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ns-color-text);
+}
+
+.metaLine {
+  margin: 0 0 2px 0;
+  font-size: 0.82rem;
+  color: var(--ns-color-text-muted);
+}
+
+.editLink {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ns-color-primary);
+  text-decoration: none;
+}
+
+.editLink:hover {
+  text-decoration: underline;
+}

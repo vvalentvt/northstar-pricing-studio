@@ -27,6 +27,7 @@ from persistence import SQLiteQuoteRepository
 
 from api.dependencies import resolve_db_path
 from api.routers.budget_fit import router as budget_fit_router
+from api.routers.pricing import router as pricing_router
 from api.routers.quotes import router as quotes_router
 
 
@@ -57,6 +58,7 @@ app.add_middleware(
 )
 
 app.include_router(budget_fit_router)
+app.include_router(pricing_router)
 app.include_router(quotes_router)
 
 
