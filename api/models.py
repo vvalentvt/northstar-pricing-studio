@@ -189,6 +189,22 @@ class QuoteResponseDto(BaseModel):
     version_history: list[QuoteVersionSummaryDto] = Field(alias="versionHistory")
 
 
+class QuoteSummaryDto(BaseModel):
+    """GET /api/quotes list entry -- compact, no version history or
+    snapshot payload (mirrors quotes.QuoteSummary)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    quote_id: str = Field(alias="quoteId")
+    customer_name: str = Field(alias="customerName")
+    owner: str
+    status: str
+    created_at: str = Field(alias="createdAt")
+    current_version_number: int = Field(alias="currentVersionNumber")
+    final_price: float = Field(alias="finalPrice")
+    approval_required: bool = Field(alias="approvalRequired")
+
+
 class DiscountPolicyDto(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

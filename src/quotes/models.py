@@ -108,6 +108,27 @@ class QuoteVersion(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class QuoteSummary(BaseModel):
+    """Lightweight listing entry for the Quotes index (GET /api/quotes).
+
+    Deliberately carries only what a listing row needs -- never the full
+    version history or snapshot payloads a Quote carries (see
+    QuoteRepository.list_recent). Built from each Quote's current
+    version only; never recalculated.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    quote_id: str
+    customer_name: str
+    owner: str
+    status: str
+    created_at: datetime
+    current_version_number: int
+    final_price: float
+    approval_required: bool
+
+
 class Quote(BaseModel):
     """The stable commercial object across revisions.
 

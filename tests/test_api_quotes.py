@@ -166,3 +166,52 @@ def test_created_quote_persists_across_requests_on_same_repository(_quote_reposi
     assert reloaded.current_version.pricing_snapshot.final_price == (
         created["currentVersion"]["pricing"]["finalPrice"]
     )
+
+
+def test_list_quotes_is_empty_list_when_none_exist():
+    response = client.get("/api/quotes")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_quotes_returns_a_summary_for_each_created_quote():
+    first = client.post("/api/quotes", json=_create_payload(customerName="Acme")).json()
+    second = client.post("/api/quotes", json=_create_payload(customerName="Globex")).json()
+
+    response = client.get("/api/quotes")
+
+    assert response.status_code == 200
+    ids = {entry["quoteId"] for entry in response.json()}
+    assert ids == {first["quoteId"], second["quoteId"]}
+
+
+def test_list_quotes_summary_matches_current_version_not_full_snapshot():
+    created = client.post("/api/quotes", json=_create_payload()).json()
+
+    response = client.get("/api/quotes")
+
+    [entry] = response.json()
+    assert entry["quoteId"] == created["quoteId"]
+    assert entry["customerName"] == created["customerName"]
+    assert entry["owner"] == created["owner"]
+    assert entry["currentVersionNumber"] == 1
+    assert entry["finalPrice"] == created["currentVersion"]["pricing"]["finalPrice"]
+    assert entry["approvalRequired"] == created["currentVersion"]["pricing"]["approvalRequired"]
+    # Never a full snapshot -- no configuration, no version history.
+    assert "configuration" not in entry
+    assert "versionHistory" not in entry
+    assert "currentVersion" not in entry
+
+
+def test_list_quotes_most_recently_created_first():
+    import time
+
+    first = client.post("/api/quotes", json=_create_payload(customerName="First")).json()
+    time.sleep(0.05)
+    second = client.post("/api/quotes", json=_create_payload(customerName="Second")).json()
+
+    response = client.get("/api/quotes")
+
+    ids = [entry["quoteId"] for entry in response.json()]
+    assert ids.index(second["quoteId"]) < ids.index(first["quoteId"])

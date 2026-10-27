@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { getQuote } from "../../api/quotes";
+import { QuoteWorkflowNav } from "../../components/QuoteWorkflowNav";
 import type { QuoteDetail } from "../../types/quote";
 import { ReviewPricingHeader } from "./ReviewPricingHeader";
 import { FinalPricePanel } from "./FinalPricePanel";
@@ -82,6 +83,7 @@ export function ReviewPricingPage() {
   return (
     <div>
       <ReviewPricingHeader quote={quote} />
+      <QuoteWorkflowNav quoteId={quote.quoteId} current="review" />
 
       <div className={styles.panelRow}>
         <FinalPricePanel

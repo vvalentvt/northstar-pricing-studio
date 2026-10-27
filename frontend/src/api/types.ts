@@ -104,6 +104,17 @@ export interface CreateQuoteRequestDto {
   configuration: ConfigurationDto;
 }
 
+export interface QuoteSummaryDto {
+  quoteId: string;
+  customerName: string;
+  owner: string;
+  status: string;
+  createdAt: string;
+  currentVersionNumber: number;
+  finalPrice: number;
+  approvalRequired: boolean;
+}
+
 export interface QuoteResponseDto {
   quoteId: string;
   customerName: string;

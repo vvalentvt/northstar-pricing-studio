@@ -4,6 +4,7 @@ from .models import (
     NegotiationContext,
     PricingSnapshot,
     Quote,
+    QuoteSummary,
     QuoteVersion,
     QuoteVersionSource,
 )
@@ -15,6 +16,7 @@ __all__ = [
     "NegotiationContext",
     "PricingSnapshot",
     "Quote",
+    "QuoteSummary",
     "QuoteVersion",
     "QuoteVersionSource",
     "Scenario",

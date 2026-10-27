@@ -174,6 +174,23 @@ describe("ReviewPricingPage", () => {
     expect(link).toHaveAttribute("href", "/budget-fit?quoteId=Q-84502");
   });
 
+  it("shows the workflow nav with Review Pricing as the current step and links to Alternatives/Proposal", async () => {
+    mockGetQuote.mockResolvedValue(baseQuote());
+
+    renderAtQuote("Q-84502");
+
+    const nav = await screen.findByRole("navigation", { name: "Quote workflow" });
+    expect(nav).toHaveTextContent("Review Pricing");
+    expect(screen.getByRole("link", { name: "Alternatives" })).toHaveAttribute(
+      "href",
+      "/quotes/Q-84502/alternatives",
+    );
+    expect(screen.getByRole("link", { name: "Proposal" })).toHaveAttribute(
+      "href",
+      "/quotes/Q-84502/proposal",
+    );
+  });
+
   it("shows a real Create Proposal action with the correct quoteId when within authority", async () => {
     mockGetQuote.mockResolvedValue(baseQuote());
 

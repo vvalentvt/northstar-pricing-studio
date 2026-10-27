@@ -276,6 +276,23 @@ describe("ProposalPage", () => {
     expect(summaryField).toHaveValue("Keep this text.");
   });
 
+  it("shows the workflow nav with Proposal as the current step and links back to Review Pricing/Alternatives", async () => {
+    mockGetQuote.mockResolvedValue(baseQuote());
+
+    renderAtQuote("Q-84502");
+
+    const nav = await screen.findByRole("navigation", { name: "Quote workflow" });
+    expect(nav).toHaveTextContent("Proposal");
+    expect(screen.getByRole("link", { name: "Review Pricing" })).toHaveAttribute(
+      "href",
+      "/quotes/Q-84502/review",
+    );
+    expect(screen.getByRole("link", { name: "Alternatives" })).toHaveAttribute(
+      "href",
+      "/quotes/Q-84502/alternatives",
+    );
+  });
+
   it("renders a Quote Not Found state on a 404", async () => {
     mockGetQuote.mockRejectedValue(new ApiError(404, "not found"));
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from quotes import Quote, QuoteVersion
+from quotes import Quote, QuoteSummary, QuoteVersion
 
 
 class QuoteNotFoundError(Exception):
@@ -68,4 +68,11 @@ class QuoteRepository(Protocol):
         is exactly `expected_current_version + 1`; otherwise raises
         QuoteVersionConflict. Raises QuoteNotFoundError if the quote
         doesn't exist."""
+        ...
+
+    def list_recent(self, limit: int = 50) -> tuple[QuoteSummary, ...]:
+        """The most recently created Quotes (most-recent-first, bounded
+        to `limit`) for the Quotes index -- each summary reflects that
+        Quote's current version only. Not a generic search/filter/sort
+        capability; just this one bounded listing."""
         ...

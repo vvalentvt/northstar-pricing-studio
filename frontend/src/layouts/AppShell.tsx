@@ -10,15 +10,15 @@ interface AppShellProps {
  * The desktop application shell: branded dark sidebar + nav, content
  * canvas on the right.
  *
- * "New Quote" and "Optimize to Budget" are the two real, working nav
- * links. Review Pricing is quote-specific (reached by completing New
- * Quote, or a direct link) and deliberately has no global nav entry --
- * there is no quote listing/dashboard yet (see Phase 6C spec section
- * 27), so a standing nav link would have nowhere honest to point
- * without a quoteId. Other workflows (Scenario management, Proposals,
- * Approvals, Administration, ...) are intentionally omitted rather than
- * shown as decorative/disabled items -- the nav should not imply a
- * broader migrated product than currently exists.
+ * "Quotes", "New Quote", and "Optimize to Budget" are the only global
+ * nav links -- Quotes is the application's home (see Phase 7A spec
+ * section 8-9). Review Pricing/Alternatives/Proposal are quote-specific
+ * (reached from Quotes, or a direct link) and deliberately have no
+ * global nav entry; a standing link would have nowhere honest to point
+ * without a quoteId (see QuoteWorkflowNav for their own contextual
+ * navigation). Other workflows (Approvals, Administration, ...) are
+ * intentionally omitted rather than shown as decorative/disabled items
+ * -- the nav should not imply a broader product than currently exists.
  */
 export function AppShell({ children }: AppShellProps) {
   function navLinkClassName({ isActive }: { isActive: boolean }) {
@@ -33,6 +33,9 @@ export function AppShell({ children }: AppShellProps) {
           <div className={styles.brandSubtitle}>Pricing Studio</div>
         </div>
         <nav className={styles.nav}>
+          <NavLink to="/quotes" end className={navLinkClassName}>
+            Quotes
+          </NavLink>
           <NavLink to="/quotes/new/setup" className={navLinkClassName}>
             New Quote
           </NavLink>

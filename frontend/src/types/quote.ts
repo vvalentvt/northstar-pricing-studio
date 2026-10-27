@@ -65,6 +65,19 @@ export interface VersionSummary {
   approvalRequired: boolean;
 }
 
+/** One row of the Quotes index (GET /api/quotes) -- compact by design,
+ * never a full QuoteDetail. */
+export interface QuoteSummary {
+  quoteId: string;
+  customerName: string;
+  owner: string;
+  status: string;
+  createdAt: string;
+  currentVersionNumber: number;
+  finalPrice: number;
+  approvalRequired: boolean;
+}
+
 export interface QuoteDetail {
   quoteId: string;
   customerName: string;

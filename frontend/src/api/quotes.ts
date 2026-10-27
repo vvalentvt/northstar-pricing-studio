@@ -3,6 +3,7 @@ import type {
   ConfigurationDto,
   PricingSnapshotDto,
   QuoteResponseDto,
+  QuoteSummaryDto,
   QuoteVersionResponseDto,
   QuoteVersionSummaryDto,
 } from "./types";
@@ -11,6 +12,7 @@ import type {
   Adjustment,
   PricingDetail,
   QuoteDetail,
+  QuoteSummary,
   QuoteVersionDetail,
   VersionSummary,
 } from "../types/quote";
@@ -97,6 +99,29 @@ export async function getQuote(quoteId: string): Promise<QuoteDetail> {
  * a previewed price back as the committed one (see ADR-004 and Phase
  * 6D spec section 22: Quote creation is server-authoritative).
  */
+function mapSummary(dto: QuoteSummaryDto): QuoteSummary {
+  return {
+    quoteId: dto.quoteId,
+    customerName: dto.customerName,
+    owner: dto.owner,
+    status: dto.status,
+    createdAt: dto.createdAt,
+    currentVersionNumber: dto.currentVersionNumber,
+    finalPrice: dto.finalPrice,
+    approvalRequired: dto.approvalRequired,
+  };
+}
+
+/**
+ * The Quotes index: the most recently created Quotes, most-recent-first
+ * (see GET /api/quotes). Compact summaries only -- the Quotes page
+ * never loads a full QuoteDetail just to render a listing row.
+ */
+export async function listQuotes(): Promise<QuoteSummary[]> {
+  const response = await apiGet<QuoteSummaryDto[]>("/api/quotes");
+  return response.map(mapSummary);
+}
+
 export async function createQuote(
   customerName: string,
   owner: string,

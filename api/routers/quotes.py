@@ -30,10 +30,12 @@ from api.dto_mapping import (
     configuration_dto_to_request,
     configuration_snapshot_to_dto,
     pricing_snapshot_to_dto,
+    quote_summary_to_dto,
 )
 from api.models import (
     CreateQuoteRequestDto,
     QuoteResponseDto,
+    QuoteSummaryDto,
     QuoteVersionResponseDto,
     QuoteVersionSummaryDto,
 )
@@ -98,6 +100,17 @@ def create_quote_endpoint(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return _quote_to_response_dto(quote)
+
+
+@router.get("", response_model=list[QuoteSummaryDto])
+def list_quotes_endpoint(
+    repository: QuoteRepository = Depends(get_quote_repository),
+) -> list[QuoteSummaryDto]:
+    """The Quotes index: the 50 most recently created Quotes,
+    most-recent-first. Compact summaries only -- never full snapshots
+    (see QuoteRepository.list_recent)."""
+    summaries = repository.list_recent(limit=50)
+    return [quote_summary_to_dto(summary) for summary in summaries]
 
 
 @router.get("/{quote_id}", response_model=QuoteResponseDto)
