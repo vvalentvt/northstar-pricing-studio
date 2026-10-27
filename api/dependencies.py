@@ -21,7 +21,7 @@ from pathlib import Path
 
 from fastapi import Request
 
-from persistence import QuoteRepository, SQLiteQuoteRepository
+from persistence import BudgetFitRunRepository, QuoteRepository, ScenarioRepository, SQLiteQuoteRepository
 from pricing_engine import load_rules
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +36,14 @@ def resolve_db_path() -> Path:
 
 def get_quote_repository(request: Request) -> QuoteRepository:
     return request.app.state.quote_repository
+
+
+def get_scenario_repository(request: Request) -> ScenarioRepository:
+    return request.app.state.scenario_repository
+
+
+def get_budget_fit_run_repository(request: Request) -> BudgetFitRunRepository:
+    return request.app.state.budget_fit_run_repository
 
 
 @lru_cache(maxsize=1)

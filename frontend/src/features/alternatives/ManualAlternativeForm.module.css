@@ -1,0 +1,66 @@
+.panel {
+  margin-bottom: var(--ns-space-lg);
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--ns-space-md);
+  max-width: 360px;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--ns-space-sm);
+  margin-top: var(--ns-space-md);
+}
+
+.saveButton {
+  border: none;
+  border-radius: var(--ns-radius-sm);
+  padding: 10px 18px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--ns-color-primary);
+  color: #ffffff;
+}
+
+.saveButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cancelButton {
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  padding: 10px 18px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+}
+
+.errorText {
+  margin: var(--ns-space-sm) 0 0 0;
+  font-size: 0.82rem;
+  color: var(--ns-color-error);
+  font-weight: 600;
+}

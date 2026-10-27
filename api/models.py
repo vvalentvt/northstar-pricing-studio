@@ -209,3 +209,120 @@ class PricingOptionsResponseDto(BaseModel):
     contract_months: list[int] = Field(alias="contractMonths")
     included_users: int = Field(alias="includedUsers")
     discount_policy: DiscountPolicyDto = Field(alias="discountPolicy")
+
+
+class NegotiationContextDto(BaseModel):
+    """Mirrors quotes.NegotiationContext -- free-form labels, not a
+    re-encoding of BudgetFitConstraints."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    target_budget: float = Field(alias="targetBudget")
+    required_attributes: list[str] = Field(alias="requiredAttributes")
+    flexible_attributes: list[str] = Field(alias="flexibleAttributes")
+
+
+class ScenarioDto(BaseModel):
+    """One exploratory alternative in a quote's negotiation workspace --
+    never commercial history. Every field is read directly from the
+    persisted Scenario; nothing here is recalculated."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    scenario_id: str = Field(alias="scenarioId")
+    name: str
+    source: str
+    configuration: ConfigurationDto
+    pricing: PricingSnapshotDto
+    negotiation_context: NegotiationContextDto | None = Field(
+        default=None, alias="negotiationContext"
+    )
+
+
+class AlternativesBaselineDto(BaseModel):
+    """The committed QuoteVersion a workspace is anchored to --
+    workspace.base_version_number, never blindly quote.current_version
+    (see ADR-005). Not a Scenario; not selectable."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    version_number: int = Field(alias="versionNumber")
+    configuration: ConfigurationDto
+    pricing: PricingSnapshotDto
+
+
+class AlternativesResponseDto(BaseModel):
+    """GET /api/quotes/{quoteId}/alternatives response, and the shared
+    response shape every alternatives-mutating endpoint (manual/
+    from-budget-fit/selection/restart) returns after its change."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    quote_id: str = Field(alias="quoteId")
+    customer_name: str = Field(alias="customerName")
+    owner: str
+    base_version_number: int = Field(alias="baseVersionNumber")
+    current_version_number: int = Field(alias="currentVersionNumber")
+    stale: bool
+    baseline: AlternativesBaselineDto
+    scenarios: list[ScenarioDto]
+    selected_scenario_id: str | None = Field(default=None, alias="selectedScenarioId")
+
+
+class ManualAlternativeRequestDto(BaseModel):
+    """POST /api/quotes/{quoteId}/alternatives/manual request body."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(min_length=1)
+    configuration: ConfigurationDto
+
+
+class AddFromBudgetFitRequestDto(BaseModel):
+    """POST /api/quotes/{quoteId}/alternatives/from-budget-fit request
+    body. `rank` identifies the recommendation unambiguously within the
+    persisted run (BudgetFitResult.recommendations is deterministically
+    ordered 1..N) -- no separate recommendation id is needed."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    run_id: str = Field(alias="runId", min_length=1)
+    rank: int = Field(ge=1)
+
+
+class SelectAlternativeRequestDto(BaseModel):
+    """PUT /api/quotes/{quoteId}/alternatives/selection request body.
+    scenarioId omitted or null clears the current selection."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    scenario_id: str | None = Field(default=None, alias="scenarioId")
+
+
+class QuoteLinkedBudgetFitRequestDto(BaseModel):
+    """POST /api/quotes/{quoteId}/budget-fit request body. No baseline
+    configuration field -- the Quote's current committed configuration
+    is always the baseline (see Phase 6E spec section 14)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    target_budget: float = Field(gt=0, alias="targetBudget")
+    constraints: ConstraintsDto = Field(default_factory=ConstraintsDto)
+    max_recommendations: int = Field(default=3, ge=1, le=5, alias="maxRecommendations")
+
+
+class QuoteLinkedBudgetFitResponseDto(BaseModel):
+    """POST /api/quotes/{quoteId}/budget-fit response. Carries runId so
+    a chosen recommendation can later be added to Alternatives without
+    recalculation (see POST .../alternatives/from-budget-fit)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    run_id: str = Field(alias="runId")
+    quote_id: str = Field(alias="quoteId")
+    base_version_number: int = Field(alias="baseVersionNumber")
+    target_budget: float = Field(alias="targetBudget")
+    baseline_price: float = Field(alias="baselinePrice")
+    feasible_candidate_count: int = Field(alias="feasibleCandidateCount")
+    recommendations: list[RecommendationDto]
+    no_fit_reason: str | None = Field(default=None, alias="noFitReason")

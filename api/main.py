@@ -23,9 +23,10 @@ for path in (ROOT, ROOT / "src"):
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from persistence import SQLiteQuoteRepository
+from persistence import SQLiteBudgetFitRunRepository, SQLiteQuoteRepository, SQLiteScenarioRepository
 
 from api.dependencies import resolve_db_path
+from api.routers.alternatives import router as alternatives_router
 from api.routers.budget_fit import router as budget_fit_router
 from api.routers.pricing import router as pricing_router
 from api.routers.quotes import router as quotes_router
@@ -33,10 +34,15 @@ from api.routers.quotes import router as quotes_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # SQLiteQuoteRepository.__init__ runs the idempotent CREATE TABLE IF
-    # NOT EXISTS schema init -- one repository instance, opened once at
-    # startup and reused for the process lifetime, not per-request.
-    app.state.quote_repository = SQLiteQuoteRepository(resolve_db_path())
+    # Each repository's __init__ runs its own idempotent CREATE TABLE IF
+    # NOT EXISTS schema init -- one instance per repository, opened once
+    # at startup and reused for the process lifetime, not per-request.
+    # SQLiteQuoteRepository must be constructed first: scenario_workspaces,
+    # scenarios, and budget_fit_runs all have a foreign key to quotes.
+    db_path = resolve_db_path()
+    app.state.quote_repository = SQLiteQuoteRepository(db_path)
+    app.state.scenario_repository = SQLiteScenarioRepository(db_path)
+    app.state.budget_fit_run_repository = SQLiteBudgetFitRunRepository(db_path)
     yield
 
 
@@ -53,10 +59,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
 
+app.include_router(alternatives_router)
 app.include_router(budget_fit_router)
 app.include_router(pricing_router)
 app.include_router(quotes_router)

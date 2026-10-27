@@ -11,6 +11,19 @@
   color: var(--ns-color-primary);
 }
 
+.viewAlternativesLink {
+  display: inline-block;
+  margin-top: var(--ns-space-lg);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ns-color-primary);
+  text-decoration: none;
+}
+
+.viewAlternativesLink:hover {
+  text-decoration: underline;
+}
+
 .panelRow {
   display: grid;
   grid-template-columns: 1.15fr 1fr;

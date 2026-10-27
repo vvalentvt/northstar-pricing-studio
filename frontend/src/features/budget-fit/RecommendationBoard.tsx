@@ -6,9 +6,19 @@ interface RecommendationBoardProps {
   recommendations: Recommendation[];
   addedIds: Set<string>;
   onToggleAdd: (id: string) => void;
+  pendingId?: string | null;
+  addLabel?: string;
+  addedLabel?: string;
 }
 
-export function RecommendationBoard({ recommendations, addedIds, onToggleAdd }: RecommendationBoardProps) {
+export function RecommendationBoard({
+  recommendations,
+  addedIds,
+  onToggleAdd,
+  pendingId = null,
+  addLabel,
+  addedLabel,
+}: RecommendationBoardProps) {
   return (
     <section className={styles.section}>
       <h2 className={styles.heading}>Recommendations</h2>
@@ -22,6 +32,9 @@ export function RecommendationBoard({ recommendations, addedIds, onToggleAdd }: 
             recommendation={recommendation}
             added={addedIds.has(recommendation.id)}
             onToggleAdd={onToggleAdd}
+            pending={pendingId === recommendation.id}
+            addLabel={addLabel}
+            addedLabel={addedLabel}
           />
         ))}
       </div>

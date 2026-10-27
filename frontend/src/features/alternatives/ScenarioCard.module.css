@@ -1,0 +1,118 @@
+.card {
+  flex: 1 1 0;
+  min-width: 220px;
+  background: var(--ns-color-surface);
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-md);
+  padding: var(--ns-space-md) var(--ns-space-lg) var(--ns-space-lg) var(--ns-space-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.cardSelected {
+  border: 1.5px solid var(--ns-color-primary);
+  box-shadow: 0 0 0 3px var(--ns-color-primary-bg);
+}
+
+.eyebrowRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.sourceTag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ns-color-text-muted);
+}
+
+.price {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--ns-color-text);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.delta {
+  font-size: 0.8rem;
+  color: var(--ns-color-text-muted);
+  margin: 4px 0 var(--ns-space-md) 0;
+}
+
+.statRow {
+  padding: 8px 0;
+  border-top: 1px solid var(--ns-color-border);
+  border-bottom: 1px solid var(--ns-color-border);
+  margin-bottom: var(--ns-space-md);
+}
+
+.changesLabel {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--ns-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
+}
+
+.changeList {
+  list-style: none;
+  margin: 0 0 var(--ns-space-md) 0;
+  padding: 0;
+}
+
+.changeRow {
+  padding: 2px 0;
+  font-size: 0.82rem;
+}
+
+.changeLabel {
+  color: var(--ns-color-text-muted);
+}
+
+.changeValue {
+  color: var(--ns-color-text);
+  font-weight: 600;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.selectButton {
+  width: 100%;
+  border-radius: var(--ns-radius-sm);
+  padding: 9px 14px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--ns-color-border);
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+}
+
+.selectButton:hover:not(:disabled) {
+  border-color: var(--ns-color-primary);
+}
+
+.selectButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.selectButtonSelected {
+  background: var(--ns-color-primary-bg);
+  border-color: var(--ns-color-primary);
+  color: var(--ns-color-primary-text);
+}

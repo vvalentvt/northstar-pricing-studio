@@ -10,10 +10,75 @@ between wire DTOs (api/models.py) and the existing domain models
 
 from __future__ import annotations
 
-from pricing_engine import QuoteRequest
-from quotes import ConfigurationSnapshot, PricingSnapshot
+from fastapi import HTTPException
 
-from api.models import AdjustmentDto, ConfigurationDto, PricingSnapshotDto
+from budget_fit import BudgetFitField, BudgetFitRecommendation
+from pricing_engine import QuoteRequest
+from quotes import ConfigurationSnapshot, NegotiationContext, PricingSnapshot, Scenario
+
+from api.models import (
+    AdjustmentDto,
+    ConfigurationDto,
+    FieldChangeDto,
+    NegotiationContextDto,
+    PricingSnapshotDto,
+    RecommendationDto,
+    ScenarioDto,
+)
+
+#: Human-readable labels for BudgetFitField values -- presentation only.
+#: Deliberately not imported from app/app_state.py or
+#: src/application/scenarios.py: the API depends only on src/ (see
+#: ADR-003), never on Streamlit's own application layer, so this small
+#: label dict is duplicated rather than coupling the two presentation
+#: layers together.
+BUDGET_FIT_FIELD_LABELS: dict[str, str] = {
+    "tier": "Tier",
+    "users": "Users",
+    "coverage": "Coverage",
+    "history_years": "Historical depth",
+    "contract_months": "Contract term",
+    "renewal": "Renewal",
+    "premium_support": "Premium support",
+    "implementation_services": "Implementation services",
+}
+
+
+def parse_locked_fields(values: list[str]) -> frozenset[BudgetFitField]:
+    try:
+        return frozenset(BudgetFitField(value) for value in values)
+    except ValueError as exc:
+        valid = ", ".join(field.value for field in BudgetFitField)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid locked field: {exc}. Valid fields: {valid}",
+        ) from exc
+
+
+def recommendation_to_dto(rec: BudgetFitRecommendation, target_budget: float) -> RecommendationDto:
+    return RecommendationDto(
+        rank=rec.rank,
+        finalPrice=rec.pricing_snapshot.final_price,
+        budgetHeadroom=target_budget - rec.pricing_snapshot.final_price,
+        capabilityPreserved=rec.capability_score,
+        budgetUtilization=rec.budget_utilization,
+        approvalRequired=rec.pricing_snapshot.approval_required,
+        approvalReason=rec.pricing_snapshot.approval_reason,
+        isBaseline=rec.is_baseline,
+        configuration=configuration_snapshot_to_dto(rec.configuration_snapshot),
+        changedFields=[
+            FieldChangeDto(
+                field=change.field.value,
+                label=BUDGET_FIT_FIELD_LABELS.get(change.field.value, change.field.value),
+                baselineValue=change.baseline_value,
+                candidateValue=change.candidate_value,
+            )
+            for change in rec.changed_fields
+        ],
+        preservedFields=[
+            BUDGET_FIT_FIELD_LABELS.get(field.value, field.value) for field in rec.preserved_fields
+        ],
+    )
 
 
 def configuration_dto_to_request(dto: ConfigurationDto) -> QuoteRequest:
@@ -58,6 +123,29 @@ def configuration_snapshot_to_dto(snapshot: ConfigurationSnapshot) -> Configurat
         implementationServices=snapshot.implementation_services,
         renewal=snapshot.renewal,
         requestedDiscountPercent=snapshot.requested_discount_percent,
+    )
+
+
+def negotiation_context_to_dto(context: NegotiationContext) -> NegotiationContextDto:
+    return NegotiationContextDto(
+        targetBudget=context.target_budget,
+        requiredAttributes=list(context.required_attributes),
+        flexibleAttributes=list(context.flexible_attributes),
+    )
+
+
+def scenario_to_dto(scenario: Scenario) -> ScenarioDto:
+    return ScenarioDto(
+        scenarioId=scenario.scenario_id,
+        name=scenario.name,
+        source=scenario.source.value,
+        configuration=configuration_snapshot_to_dto(scenario.configuration_snapshot),
+        pricing=pricing_snapshot_to_dto(scenario.pricing_snapshot),
+        negotiationContext=(
+            negotiation_context_to_dto(scenario.negotiation_context)
+            if scenario.negotiation_context is not None
+            else None
+        ),
     )
 
 

@@ -100,8 +100,14 @@ export function ReviewPricingPage() {
 
       <div className={styles.actionRow}>
         <Link
-          to={`/budget-fit?quoteId=${encodeURIComponent(quote.quoteId)}`}
+          to={`/quotes/${encodeURIComponent(quote.quoteId)}/alternatives`}
           className={styles.primaryAction}
+        >
+          Explore Alternatives
+        </Link>
+        <Link
+          to={`/budget-fit?quoteId=${encodeURIComponent(quote.quoteId)}`}
+          className={styles.secondaryAction}
         >
           Optimize to Budget
         </Link>

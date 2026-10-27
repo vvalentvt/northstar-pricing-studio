@@ -16,75 +16,16 @@ from pydantic import ValidationError
 
 from budget_fit import (
     BudgetFitConstraints,
-    BudgetFitField,
     BudgetFitRequest,
     BudgetFitResult,
     find_budget_fit,
 )
 
 from api.dependencies import get_pricing_rules
-from api.dto_mapping import configuration_dto_to_snapshot, configuration_snapshot_to_dto
-from api.models import (
-    BudgetFitRequestDto,
-    BudgetFitResponseDto,
-    FieldChangeDto,
-    RecommendationDto,
-)
+from api.dto_mapping import configuration_dto_to_snapshot, parse_locked_fields, recommendation_to_dto
+from api.models import BudgetFitRequestDto, BudgetFitResponseDto
 
 router = APIRouter(prefix="/api", tags=["budget-fit"])
-
-#: Human-readable labels for BudgetFitField values -- presentation only.
-#: Deliberately not imported from app/app_state.py: the API depends only
-#: on src/ (see ADR-003 / the frontend -> api -> src diagram), never on
-#: Streamlit's own application layer, so the two presentation layers
-#: stay independent even though this small label dict is duplicated.
-FIELD_LABELS: dict[str, str] = {
-    "tier": "Tier",
-    "users": "Users",
-    "coverage": "Coverage",
-    "history_years": "Historical depth",
-    "contract_months": "Contract term",
-    "renewal": "Renewal",
-    "premium_support": "Premium support",
-    "implementation_services": "Implementation services",
-}
-
-
-def _parse_locked_fields(values: list[str]) -> frozenset[BudgetFitField]:
-    try:
-        return frozenset(BudgetFitField(value) for value in values)
-    except ValueError as exc:
-        valid = ", ".join(field.value for field in BudgetFitField)
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid locked field: {exc}. Valid fields: {valid}",
-        ) from exc
-
-
-def _recommendation_to_dto(rec, target_budget: float) -> RecommendationDto:
-    return RecommendationDto(
-        rank=rec.rank,
-        finalPrice=rec.pricing_snapshot.final_price,
-        budgetHeadroom=target_budget - rec.pricing_snapshot.final_price,
-        capabilityPreserved=rec.capability_score,
-        budgetUtilization=rec.budget_utilization,
-        approvalRequired=rec.pricing_snapshot.approval_required,
-        approvalReason=rec.pricing_snapshot.approval_reason,
-        isBaseline=rec.is_baseline,
-        configuration=configuration_snapshot_to_dto(rec.configuration_snapshot),
-        changedFields=[
-            FieldChangeDto(
-                field=change.field.value,
-                label=FIELD_LABELS.get(change.field.value, change.field.value),
-                baselineValue=change.baseline_value,
-                candidateValue=change.candidate_value,
-            )
-            for change in rec.changed_fields
-        ],
-        preservedFields=[
-            FIELD_LABELS.get(field.value, field.value) for field in rec.preserved_fields
-        ],
-    )
 
 
 @router.post("/budget-fit", response_model=BudgetFitResponseDto)
@@ -97,7 +38,7 @@ def post_budget_fit(request: BudgetFitRequestDto) -> BudgetFitResponseDto:
     (unknown tier/coverage, an unknown locked field, ...) raises 422.
     """
     constraints = BudgetFitConstraints(
-        locked_fields=_parse_locked_fields(request.constraints.locked_fields),
+        locked_fields=parse_locked_fields(request.constraints.locked_fields),
         minimum_users=request.constraints.minimum_users,
         required_premium_support=request.constraints.required_premium_support,
         required_implementation_services=request.constraints.required_implementation_services,
@@ -120,7 +61,7 @@ def post_budget_fit(request: BudgetFitRequestDto) -> BudgetFitResponseDto:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     recommendations = [
-        _recommendation_to_dto(rec, request.target_budget) for rec in result.recommendations
+        recommendation_to_dto(rec, request.target_budget) for rec in result.recommendations
     ]
 
     return BudgetFitResponseDto(

@@ -69,6 +69,7 @@ export function OptimizeToBudgetRoute() {
     <OptimizeToBudgetPage
       data={state.data}
       backHref={`/quotes/${encodeURIComponent(quoteId)}/review`}
+      quoteId={quoteId}
     />
   );
 }

@@ -128,3 +128,67 @@ export interface PricingOptionsResponseDto {
   includedUsers: number;
   discountPolicy: DiscountPolicyDto;
 }
+
+export interface NegotiationContextDto {
+  targetBudget: number;
+  requiredAttributes: string[];
+  flexibleAttributes: string[];
+}
+
+export interface ScenarioDto {
+  scenarioId: string;
+  name: string;
+  source: string;
+  configuration: ConfigurationDto;
+  pricing: PricingSnapshotDto;
+  negotiationContext: NegotiationContextDto | null;
+}
+
+export interface AlternativesBaselineDto {
+  versionNumber: number;
+  configuration: ConfigurationDto;
+  pricing: PricingSnapshotDto;
+}
+
+export interface AlternativesResponseDto {
+  quoteId: string;
+  customerName: string;
+  owner: string;
+  baseVersionNumber: number;
+  currentVersionNumber: number;
+  stale: boolean;
+  baseline: AlternativesBaselineDto;
+  scenarios: ScenarioDto[];
+  selectedScenarioId: string | null;
+}
+
+export interface ManualAlternativeRequestDto {
+  name: string;
+  configuration: ConfigurationDto;
+}
+
+export interface AddFromBudgetFitRequestDto {
+  runId: string;
+  rank: number;
+}
+
+export interface SelectAlternativeRequestDto {
+  scenarioId: string | null;
+}
+
+export interface QuoteLinkedBudgetFitRequestDto {
+  targetBudget: number;
+  constraints: ConstraintsDto;
+  maxRecommendations: number;
+}
+
+export interface QuoteLinkedBudgetFitResponseDto {
+  runId: string;
+  quoteId: string;
+  baseVersionNumber: number;
+  targetBudget: number;
+  baselinePrice: number;
+  feasibleCandidateCount: number;
+  recommendations: RecommendationDto[];
+  noFitReason: string | null;
+}
