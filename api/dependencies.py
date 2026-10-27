@@ -21,8 +21,14 @@ from pathlib import Path
 
 from fastapi import Request
 
-from persistence import BudgetFitRunRepository, QuoteRepository, ScenarioRepository, SQLiteQuoteRepository
+from persistence import (
+    BudgetFitRunRepository,
+    ProposalRepository,
+    QuoteRepository,
+    ScenarioRepository,
+)
 from pricing_engine import load_rules
+from proposals import ProposalRenderer
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = ROOT / "data" / "northstar.db"
@@ -44,6 +50,14 @@ def get_scenario_repository(request: Request) -> ScenarioRepository:
 
 def get_budget_fit_run_repository(request: Request) -> BudgetFitRunRepository:
     return request.app.state.budget_fit_run_repository
+
+
+def get_proposal_repository(request: Request) -> ProposalRepository:
+    return request.app.state.proposal_repository
+
+
+def get_proposal_renderer(request: Request) -> ProposalRenderer:
+    return request.app.state.proposal_renderer
 
 
 @lru_cache(maxsize=1)

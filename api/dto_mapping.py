@@ -14,6 +14,7 @@ from fastapi import HTTPException
 
 from budget_fit import BudgetFitField, BudgetFitRecommendation
 from pricing_engine import QuoteRequest
+from proposals import Proposal
 from quotes import ConfigurationSnapshot, NegotiationContext, PricingSnapshot, Scenario
 
 from api.models import (
@@ -22,6 +23,9 @@ from api.models import (
     FieldChangeDto,
     NegotiationContextDto,
     PricingSnapshotDto,
+    ProposalNarrativeDto,
+    ProposalResponseDto,
+    ProposalSummaryDto,
     RecommendationDto,
     ScenarioDto,
 )
@@ -165,4 +169,36 @@ def pricing_snapshot_to_dto(pricing: PricingSnapshot) -> PricingSnapshotDto:
         selfServiceThresholdPercent=pricing.self_service_threshold_percent,
         maxAllowedDiscountPercent=pricing.max_allowed_discount_percent,
         calculatedAt=pricing.calculated_at.isoformat(),
+    )
+
+
+def proposal_to_response_dto(proposal: Proposal) -> ProposalResponseDto:
+    snapshot = proposal.snapshot
+    return ProposalResponseDto(
+        proposalId=proposal.proposal_id,
+        quoteId=proposal.quote_id,
+        quoteVersionNumber=proposal.quote_version_number,
+        createdAt=proposal.created_at.isoformat(),
+        templateVersion=proposal.template_version,
+        filename=proposal.filename,
+        customerName=snapshot.customer_name,
+        owner=snapshot.owner,
+        narrative=ProposalNarrativeDto(
+            proposalTitle=snapshot.narrative.proposal_title,
+            executiveSummary=snapshot.narrative.executive_summary,
+            commercialNotes=snapshot.narrative.commercial_notes,
+            validThrough=snapshot.narrative.valid_through,
+        ),
+        configuration=configuration_snapshot_to_dto(snapshot.configuration_snapshot),
+        pricing=pricing_snapshot_to_dto(snapshot.pricing_snapshot),
+    )
+
+
+def proposal_to_summary_dto(proposal: Proposal) -> ProposalSummaryDto:
+    return ProposalSummaryDto(
+        proposalId=proposal.proposal_id,
+        quoteVersionNumber=proposal.quote_version_number,
+        createdAt=proposal.created_at.isoformat(),
+        templateVersion=proposal.template_version,
+        filename=proposal.filename,
     )
