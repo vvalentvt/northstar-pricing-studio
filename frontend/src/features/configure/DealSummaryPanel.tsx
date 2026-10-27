@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatDealType } from "../../utils/format";
 import styles from "./DealSummaryPanel.module.css";
 
@@ -15,13 +15,13 @@ interface DealSummaryPanelProps {
  * entered is untouched by going back (the draft persists both). */
 export function DealSummaryPanel({ customerName, owner, renewal }: DealSummaryPanelProps) {
   return (
-    <Panel label="Deal" className={styles.panel}>
+    <Section label="Deal" className={styles.section}>
       <p className={styles.customerName}>{customerName}</p>
       <p className={styles.metaLine}>{formatDealType(renewal)}</p>
       <p className={styles.metaLine}>Owner: {owner}</p>
       <Link to="/quotes/new/setup" className={styles.editLink}>
         Edit Deal Setup
       </Link>
-    </Panel>
+    </Section>
   );
 }

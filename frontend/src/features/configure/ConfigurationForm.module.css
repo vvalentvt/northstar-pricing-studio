@@ -1,7 +1,12 @@
-.panelStack {
+.sectionStack {
   display: flex;
   flex-direction: column;
-  gap: var(--ns-space-lg);
+}
+
+.sectionStack > section:not(:first-child) {
+  margin-top: var(--ns-space-lg);
+  padding-top: var(--ns-space-lg);
+  border-top: 1px solid var(--ns-color-border);
 }
 
 .row {

@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatMoney } from "../../utils/format";
 import type { PricingDetail } from "../../types/quote";
 import styles from "./FinalPricePanel.module.css";
@@ -9,14 +9,16 @@ interface FinalPricePanelProps {
 }
 
 /**
- * The single most important commercial fact on the page. Always
+ * The single most important commercial fact on the page -- rendered as
+ * an unboxed hero number rather than another bordered card, so it reads
+ * as the page's dominant object (see Phase 7A spec section 14). Always
  * currentVersion.pricing.finalPrice -- never derived from configuration
  * fields (see ADR-004: Review Pricing renders a committed PricingSnapshot,
  * it does not recalculate one).
  */
 export function FinalPricePanel({ versionNumber, pricing }: FinalPricePanelProps) {
   return (
-    <Panel label="Final Price" className={styles.panel}>
+    <Section label="Final Price" className={styles.section}>
       <div className={styles.amount} data-testid="final-price-amount">
         {formatMoney(pricing.finalPrice)}
       </div>
@@ -31,6 +33,6 @@ export function FinalPricePanel({ versionNumber, pricing }: FinalPricePanelProps
           </>
         ) : null}
       </div>
-    </Panel>
+    </Section>
   );
 }

@@ -1,6 +1,9 @@
-.panel {
+.section {
   position: sticky;
   top: var(--ns-space-lg);
+  padding: var(--ns-space-lg);
+  border: 1px dashed var(--ns-color-border);
+  border-radius: var(--ns-radius-md);
 }
 
 .eyebrow {

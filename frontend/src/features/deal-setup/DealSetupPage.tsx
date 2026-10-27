@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../components/PageHeader";
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { useQuoteDraft } from "../quote-draft/useQuoteDraft";
 import styles from "./DealSetupPage.module.css";
 
@@ -64,7 +64,7 @@ export function DealSetupPage() {
       <PageHeader title="New Quote" contextLine="Deal Setup" />
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <Panel label="Customer">
+        <Section label="Customer">
           <div className={styles.field}>
             <label className={styles.label} htmlFor="customer-name">
               Customer Name
@@ -85,9 +85,9 @@ export function DealSetupPage() {
               </p>
             ) : null}
           </div>
-        </Panel>
+        </Section>
 
-        <Panel label="Commercial Context">
+        <Section label="Commercial Context" className={styles.commercialContext}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="owner">
               Owner
@@ -137,7 +137,7 @@ export function DealSetupPage() {
               ))}
             </div>
           </fieldset>
-        </Panel>
+        </Section>
 
         <div className={styles.actionRow}>
           <button type="submit" className={styles.primaryButton}>

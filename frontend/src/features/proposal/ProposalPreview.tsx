@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatCoverage, formatMoney, formatTier } from "../../utils/format";
 import type { QuoteDetail } from "../../types/quote";
 import styles from "./ProposalPreview.module.css";
@@ -19,7 +19,7 @@ export function ProposalPreview({ quote, proposalTitle }: ProposalPreviewProps) 
   const { configuration, pricing } = quote.currentVersion;
 
   return (
-    <Panel label="Proposal Preview" className={styles.panel}>
+    <Section label="Proposal Preview" className={styles.section}>
       <p className={styles.customerName}>{quote.customerName}</p>
       <p className={styles.proposalTitle}>{proposalTitle || "Untitled proposal"}</p>
 
@@ -38,6 +38,6 @@ export function ProposalPreview({ quote, proposalTitle }: ProposalPreviewProps) 
       <p className={styles.previewNote}>
         Preview only. The generated PDF is the official proposal document.
       </p>
-    </Panel>
+    </Section>
   );
 }

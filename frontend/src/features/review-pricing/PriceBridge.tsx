@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { formatMoney } from "../../utils/format";
 import type { PricingDetail } from "../../types/quote";
 import styles from "./PriceBridge.module.css";
@@ -19,7 +19,7 @@ export function PriceBridge({ pricing }: PriceBridgeProps) {
   const explainedAdjustments = pricing.adjustments.filter((adjustment) => adjustment.amount !== 0);
 
   return (
-    <Panel label="Price Bridge">
+    <Section label="Price Bridge" className={styles.section}>
       <div className={styles.row}>
         <span className={styles.rowLabel}>Base subscription</span>
         <span className={styles.rowValue}>{formatMoney(pricing.basePrice)}</span>
@@ -65,6 +65,6 @@ export function PriceBridge({ pricing }: PriceBridgeProps) {
           </ul>
         </details>
       ) : null}
-    </Panel>
+    </Section>
   );
 }

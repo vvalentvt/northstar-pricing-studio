@@ -1,0 +1,12 @@
+.section {
+  padding: 0;
+}
+
+.label {
+  font-size: var(--ns-text-panel-label-size);
+  font-weight: var(--ns-text-panel-label-weight);
+  color: var(--ns-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 var(--ns-space-md) 0;
+}

@@ -1,4 +1,4 @@
-import { Panel } from "../../components/Panel";
+import { Section } from "../../components/Section";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { PricingDetail } from "../../types/quote";
 import styles from "./ApprovalCallout.module.css";
@@ -17,7 +17,7 @@ interface ApprovalCalloutProps {
  */
 export function ApprovalCallout({ pricing }: ApprovalCalloutProps) {
   return (
-    <Panel label="Approval" className={styles.panel}>
+    <Section label="Approval" className={styles.section}>
       {pricing.approvalRequired ? (
         <div className={styles.calloutAttention}>
           <StatusBadge label="Needs approval" tone="amber" />
@@ -36,6 +36,6 @@ export function ApprovalCallout({ pricing }: ApprovalCalloutProps) {
         <span>Self-service authority: up to {pricing.selfServiceThresholdPercent.toFixed(0)}%</span>
         <span>Maximum allowed discount: {pricing.maxAllowedDiscountPercent.toFixed(0)}%</span>
       </div>
-    </Panel>
+    </Section>
   );
 }
