@@ -192,3 +192,40 @@ export interface QuoteLinkedBudgetFitResponseDto {
   recommendations: RecommendationDto[];
   noFitReason: string | null;
 }
+
+export interface CreateProposalRequestDto {
+  expectedVersionNumber: number;
+  proposalTitle: string;
+  executiveSummary: string;
+  commercialNotes: string | null;
+  validThrough: string | null;
+}
+
+export interface ProposalNarrativeDto {
+  proposalTitle: string;
+  executiveSummary: string;
+  commercialNotes: string | null;
+  validThrough: string | null;
+}
+
+export interface ProposalResponseDto {
+  proposalId: string;
+  quoteId: string;
+  quoteVersionNumber: number;
+  createdAt: string;
+  templateVersion: string;
+  filename: string;
+  customerName: string;
+  owner: string;
+  narrative: ProposalNarrativeDto;
+  configuration: ConfigurationDto;
+  pricing: PricingSnapshotDto;
+}
+
+export interface ProposalSummaryDto {
+  proposalId: string;
+  quoteVersionNumber: number;
+  createdAt: string;
+  templateVersion: string;
+  filename: string;
+}

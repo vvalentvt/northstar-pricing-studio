@@ -1,0 +1,64 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--ns-space-md);
+}
+
+.field:last-child {
+  margin-bottom: 0;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ns-color-text);
+}
+
+.helperText {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--ns-color-text-muted);
+}
+
+.input,
+.textarea {
+  font: inherit;
+  padding: 9px 11px;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+  resize: vertical;
+}
+
+.textarea {
+  min-height: 90px;
+  line-height: 1.45;
+}
+
+.dateRow {
+  display: flex;
+  align-items: center;
+  gap: var(--ns-space-sm);
+}
+
+.dateInput {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--ns-color-border);
+  border-radius: var(--ns-radius-sm);
+  background: var(--ns-color-surface);
+  color: var(--ns-color-text);
+  max-width: 200px;
+}
+
+.clearDateButton {
+  border: none;
+  background: none;
+  color: var(--ns-color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}

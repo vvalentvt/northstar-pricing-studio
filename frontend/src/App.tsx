@@ -6,6 +6,7 @@ import { ConfigurePage } from "./features/configure/ConfigurePage";
 import { OptimizeToBudgetRoute } from "./features/budget-fit/OptimizeToBudgetRoute";
 import { ReviewPricingPage } from "./features/review-pricing/ReviewPricingPage";
 import { AlternativesPage } from "./features/alternatives/AlternativesPage";
+import { ProposalPage } from "./features/proposal/ProposalPage";
 
 /**
  * "/" and "/quotes/new" both redirect to Deal Setup -- the front door
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/budget-fit" element={<OptimizeToBudgetRoute />} />
             <Route path="/quotes/:quoteId/review" element={<ReviewPricingPage />} />
             <Route path="/quotes/:quoteId/alternatives" element={<AlternativesPage />} />
+            <Route path="/quotes/:quoteId/proposal" element={<ProposalPage />} />
             <Route path="*" element={<p>Page not found.</p>} />
           </Routes>
         </AppShell>

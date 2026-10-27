@@ -73,3 +73,29 @@ export async function apiPut<TResponse>(path: string, body: unknown): Promise<TR
   }
   return handleResponse<TResponse>(response);
 }
+
+/** For binary responses (the Proposal PDF download) -- everything else
+ * in this app is JSON, so this is the one exception to apiGet. Returns
+ * the exact bytes the server sent; never regenerates anything. */
+export async function apiGetBlob(path: string): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`);
+  } catch {
+    throw new ApiError(0, "Unable to reach the Northstar API.");
+  }
+  if (!response.ok) {
+    let detail = `Request failed with status ${response.status}.`;
+    try {
+      const payload: unknown = await response.json();
+      if (payload && typeof payload === "object" && "detail" in payload) {
+        const detailValue = (payload as { detail: unknown }).detail;
+        if (typeof detailValue === "string") detail = detailValue;
+      }
+    } catch {
+      // Response body wasn't JSON -- keep the generic message.
+    }
+    throw new ApiError(response.status, detail);
+  }
+  return response.blob();
+}
