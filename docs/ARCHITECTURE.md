@@ -497,10 +497,19 @@ Rows are never updated — `quote_versions` is append-only, matching the domain'
 
 This is scoped to the API path only. Streamlit (`app/`) remains entirely `st.session_state`-backed and has not been migrated; the two Quote stores are independent during the ongoing frontend migration (ADR-003).
 
+**Implemented (Phase 6E — see [ADR-005](adr/005-negotiation-workspace-persistence.md)):** the negotiation workspace is also durable behind the API, but as explicitly *mutable* exploratory state, not commercial history:
+
+```text
+scenario_workspaces  -- one row per quote's active workspace (quote_id PK, FK to quotes)
+scenarios            -- one row per Scenario (manual or budget_fit), FK to scenario_workspaces
+budget_fit_runs      -- one row per quote-linked Budget Fit search, write-once lineage only
+```
+
+Unlike `quote_versions`, rows here are genuinely updated/deleted: selecting a different Scenario updates `scenario_workspaces.selected_scenario_id` in place, and a successful promotion (or "Start New Exploration") deletes the workspace's rows outright. Promotion itself still only ever appends to `quote_versions` via the existing `QuoteRepository.append_version` — nothing about exploratory persistence changes how commercial history is written.
+
 **Still deferred:**
 
 ```text
-scenarios        [optional if transient scenarios need persistence]
 approvals
 proposals
 ```
