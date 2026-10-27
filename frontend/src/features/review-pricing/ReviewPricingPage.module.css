@@ -87,3 +87,15 @@
 .secondaryAction:hover {
   border-color: var(--ns-color-primary);
 }
+
+.lockedAction {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--ns-radius-sm);
+  padding: 10px 20px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  border: 1px dashed var(--ns-color-border);
+  color: var(--ns-color-text-muted);
+  cursor: default;
+}

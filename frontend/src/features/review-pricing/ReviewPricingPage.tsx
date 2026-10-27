@@ -111,6 +111,18 @@ export function ReviewPricingPage() {
         >
           Optimize to Budget
         </Link>
+        {quote.currentVersion.pricing.approvalRequired ? (
+          <span className={styles.lockedAction} title="Pricing approval is required before a customer-facing proposal can be generated.">
+            Proposal unavailable — pricing approval required
+          </span>
+        ) : (
+          <Link
+            to={`/quotes/${encodeURIComponent(quote.quoteId)}/proposal`}
+            className={styles.secondaryAction}
+          >
+            Create Proposal
+          </Link>
+        )}
       </div>
     </div>
   );
