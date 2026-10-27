@@ -66,3 +66,11 @@ def test_root_path_serves_the_spa_shell():
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
+
+
+def test_path_traversal_attempt_falls_back_to_the_spa_shell_not_an_arbitrary_file():
+    response = client.get("/../../../../etc/passwd")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "<div id=\"root\">" in response.text

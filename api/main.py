@@ -118,8 +118,13 @@ if FRONTEND_DIST.is_dir():
         if full_path == "api" or full_path.startswith("api/"):
             # An unmatched /api/* path is a real 404, never the SPA shell.
             raise HTTPException(status_code=404, detail="Not found")
-        candidate = FRONTEND_DIST / full_path
-        if full_path and candidate.is_file():
+        # Resolve and confirm the result still lives under FRONTEND_DIST
+        # before ever serving it -- full_path is client-controlled, and
+        # without this a "../" segment could otherwise escape the
+        # intended directory (the same guard StaticFiles applies to the
+        # /assets mount above).
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        if full_path and candidate.is_relative_to(FRONTEND_DIST) and candidate.is_file():
             return FileResponse(candidate)
         # Any other path (including a deep client-side route like
         # /quotes/Q-123/review) falls back to the SPA shell, which
