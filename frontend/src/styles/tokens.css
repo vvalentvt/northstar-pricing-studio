@@ -2,40 +2,64 @@
  * Northstar design tokens.
  *
  * Deliberately small: enough to keep every component consistent, not a
- * generalized design-token framework. Colors match the values already
- * derived from the approved wireframes (docs/wireframes/*.svg) and
- * carried into the Streamlit implementation's theme, so this prototype
- * and the production app speak the same visual language rather than a
- * divergent one invented for this spike.
+ * generalized design-token framework.
+ *
+ * Brand concept (Phase 7B): direction, precision, commercial
+ * confidence. A midnight-ink shell (sidebar, brand chrome) carries the
+ * identity; the light workspace surface stays dense and legible for
+ * pricing work. One controlled accent -- never a second competing
+ * color -- used for active navigation, key workflow progression, and
+ * commercial emphasis.
  */
 
 :root {
-  /* Color */
-  --ns-color-bg: #f6f7f9;
+  /* Color -- workspace surface */
+  --ns-color-bg: #f5f6f8;
   --ns-color-surface: #ffffff;
-  --ns-color-sidebar: #1f2937;
-  --ns-color-sidebar-active: #344054;
-  --ns-color-sidebar-border: #374151;
-  --ns-color-sidebar-text: #d0d5dd;
-  --ns-color-sidebar-text-muted: #9aa4b2;
 
-  --ns-color-text: #18212f;
-  --ns-color-text-muted: #667085;
-  --ns-color-border: #d0d5dd;
+  /* Color -- shell (sidebar, brand chrome): a true midnight-ink
+     neutral, not a generic gray-800, so Northstar reads as its own
+     product rather than an admin template. */
+  --ns-color-ink: #10131c;
+  --ns-color-ink-elevated: #181c29;
+  --ns-color-ink-border: #262b3b;
+  --ns-color-ink-text: #e7e9f0;
+  --ns-color-ink-text-muted: #8891a6;
 
-  --ns-color-primary: #2f6fed;
-  --ns-color-primary-bg: #eaf1fd;
-  --ns-color-primary-text: #2f6fed;
+  /* Backward-compatible aliases (sidebar-prefixed names used across
+     existing components). */
+  --ns-color-sidebar: var(--ns-color-ink);
+  --ns-color-sidebar-active: var(--ns-color-ink-elevated);
+  --ns-color-sidebar-border: var(--ns-color-ink-border);
+  --ns-color-sidebar-text: var(--ns-color-ink-text);
+  --ns-color-sidebar-text-muted: var(--ns-color-ink-text-muted);
 
-  --ns-color-success: #247a43;
-  --ns-color-success-bg: #eaf7ef;
+  --ns-color-text: #161a24;
+  --ns-color-text-muted: #636b7d;
+  --ns-color-border: #dde1e8;
+  --ns-color-border-subtle: #eceef2;
 
-  --ns-color-attention: #9a6700;
-  --ns-color-attention-bg: #fff7e6;
-  --ns-color-attention-border: #f2c94c;
+  /* The one brand accent -- a deep, confident indigo-blue. Never a
+     second accent color; never neon/oversaturated. */
+  --ns-color-primary: #3347c9;
+  --ns-color-primary-strong: #26379e;
+  --ns-color-primary-bg: #ecefff;
+  --ns-color-primary-text: #3347c9;
+  --ns-color-focus: #3347c9;
+  /* Text color on a solid accent/ink background (primary buttons, the
+     active sidebar item) -- named so feature CSS modules never repeat
+     a bare #ffffff ad hoc. */
+  --ns-color-on-accent: #ffffff;
 
-  --ns-color-error: #b42318;
-  --ns-color-error-bg: #fef3f2;
+  --ns-color-success: #1b7a4d;
+  --ns-color-success-bg: #e8f6ee;
+
+  --ns-color-attention: #92610a;
+  --ns-color-attention-bg: #fdf3e2;
+  --ns-color-attention-border: #e9b949;
+
+  --ns-color-error: #b3261e;
+  --ns-color-error-bg: #fcebea;
 
   /* Spacing */
   --ns-space-xs: 4px;
@@ -49,10 +73,17 @@
   --ns-radius-sm: 6px;
   --ns-radius-md: 9px;
 
-  /* Typography */
+  /* Typography -- web-safe system stacks only, no font licensing risk. */
   --ns-font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     sans-serif;
+  --ns-font-family-mono:
+    "SF Mono", ui-monospace, "Cascadia Code", Consolas, "Liberation Mono",
+    monospace;
+
+  --ns-text-wordmark-size: 1.15rem;
+  --ns-text-wordmark-weight: 800;
+  --ns-text-wordmark-tracking: 0.04em;
 
   --ns-text-page-title-size: 2rem;
   --ns-text-page-title-weight: 800;
@@ -73,4 +104,7 @@
   --ns-text-amount-weight: 800;
 
   --ns-shadow-none: none;
+  --ns-shadow-sm: 0 1px 2px rgba(16, 19, 28, 0.06);
+
+  --ns-content-max-width: 1320px;
 }

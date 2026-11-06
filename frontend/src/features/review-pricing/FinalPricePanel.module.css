@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  border-left: 3px solid var(--ns-color-primary);
+  padding-left: var(--ns-space-lg);
 }
 
 .amount {

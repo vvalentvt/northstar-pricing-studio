@@ -18,20 +18,40 @@ from datetime import datetime
 from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.graphics.shapes import Drawing, Polygon
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .models import ProposalSnapshot
 
-_MUTED = colors.HexColor("#667085")
-_QUIET = colors.HexColor("#98a2b3")
-_RULE = colors.HexColor("#e5e7eb")
-_TEXT = colors.HexColor("#18212f")
+# Same palette as frontend/src/styles/tokens.css -- the PDF and the
+# React app are deliberately one brand, not two (Phase 7B).
+_MUTED = colors.HexColor("#636b7d")
+_QUIET = colors.HexColor("#8891a6")
+_RULE = colors.HexColor("#dde1e8")
+_TEXT = colors.HexColor("#161a24")
+_ACCENT = colors.HexColor("#3347c9")
+_INK = colors.HexColor("#10131c")
+_QUIET_HEX = "#8891a6"
 
 _MARGIN = 0.9 * inch
+
+#: The exact four-point star geometry drawn in
+#: frontend/src/brand/NorthstarMark.tsx (viewBox 0 0 24 24), redrawn
+#: here as a deterministic ReportLab vector shape -- never a loaded
+#: image file, so the app and the PDF share one mark with zero binary
+#: asset duplication.
+_MARK_POINTS = (12, 1, 14.97, 9.03, 23, 12, 14.97, 14.97, 12, 23, 9.03, 14.97, 1, 12, 9.03, 9.03)
+
+
+def _northstar_mark(size: float) -> Drawing:
+    scale = size / 24
+    points = [coordinate * scale for coordinate in _MARK_POINTS]
+    drawing = Drawing(size, size)
+    drawing.add(Polygon(points, fillColor=_ACCENT, strokeColor=None))
+    return drawing
 
 
 def _format_money(amount: float, *, signed: bool = False) -> str:
@@ -86,11 +106,15 @@ def _build_styles() -> dict[str, ParagraphStyle]:
     return {
         "brand": ParagraphStyle(
             "brand", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=14,
-            textColor=_TEXT, letterSpacing=1.2,
+            textColor=_INK, letterSpacing=1.2,
         ),
         "brandSub": ParagraphStyle(
-            "brandSub", parent=base["Normal"], fontName="Helvetica", fontSize=8,
-            textColor=_MUTED, letterSpacing=1.5, spaceAfter=0,
+            "brandSub", parent=base["Normal"], fontName="Helvetica", fontSize=7.5,
+            textColor=_MUTED, letterSpacing=1.8, spaceAfter=0,
+        ),
+        "eyebrow": ParagraphStyle(
+            "eyebrow", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=9,
+            textColor=_ACCENT, letterSpacing=2, spaceAfter=6,
         ),
         "title": ParagraphStyle(
             "title", parent=base["Normal"], fontName="Helvetica-Bold", fontSize=22,
@@ -109,6 +133,12 @@ def _build_styles() -> dict[str, ParagraphStyle]:
             textColor=_MUTED,
         ),
     }
+
+
+def _numbered_heading(number: str, text: str, style: ParagraphStyle) -> Paragraph:
+    """An understated section number ahead of a heading -- improves
+    document orientation without a heavy numbering treatment."""
+    return Paragraph(f'<font color="{_QUIET_HEX}">{number}</font>&nbsp;&nbsp;{text}', style)
 
 
 class ReportLabProposalRenderer:
@@ -136,9 +166,28 @@ class ReportLabProposalRenderer:
         styles = _build_styles()
         story = []
 
-        story.append(Paragraph("NORTHSTAR", styles["brand"]))
-        story.append(Paragraph("PRICING STUDIO", styles["brandSub"]))
-        story.append(Spacer(1, 20))
+        wordmark = Paragraph(
+            f'NORTHSTAR<br/><font size="7.5" color="{_QUIET_HEX}">PRICING STUDIO</font>',
+            styles["brand"],
+        )
+        brand_lockup = Table(
+            [[_northstar_mark(16), wordmark]],
+            colWidths=[0.28 * inch, 2.5 * inch],
+        )
+        brand_lockup.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (1, 0), (1, 0), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                ]
+            )
+        )
+        story.append(brand_lockup)
+        story.append(Spacer(1, 18))
+        story.append(Paragraph("PRICING PROPOSAL", styles["eyebrow"]))
         story.append(Paragraph(_escape(snapshot.narrative.proposal_title), styles["title"]))
         story.append(Spacer(1, 16))
 
@@ -166,11 +215,10 @@ class ReportLabProposalRenderer:
         story.append(meta_table)
         story.append(Spacer(1, 26))
 
-        story.append(Paragraph("Executive Summary", styles["heading"]))
+        story.append(_numbered_heading("01", "Executive Summary", styles["heading"]))
         story.append(Paragraph(_escape(snapshot.narrative.executive_summary), styles["body"]))
         story.append(Spacer(1, 20))
 
-        story.append(Paragraph("Proposed Solution", styles["heading"]))
         config = snapshot.configuration_snapshot
         solution_rows = [
             ["Tier", _format_tier(config.tier)],
@@ -182,7 +230,7 @@ class ReportLabProposalRenderer:
             ["Contract Term", _format_contract_months(config.contract_months)],
             ["Commercial Context", _format_deal_context(config.renewal)],
         ]
-        solution_table = Table(solution_rows, colWidths=[2.3 * inch, 3.4 * inch])
+        solution_table = Table(solution_rows, colWidths=[2.3 * inch, 3.4 * inch], splitByRow=0)
         solution_table.setStyle(
             TableStyle(
                 [
@@ -197,10 +245,13 @@ class ReportLabProposalRenderer:
                 ]
             )
         )
-        story.append(solution_table)
+        story.append(
+            KeepTogether(
+                [_numbered_heading("02", "Proposed Solution", styles["heading"]), solution_table]
+            )
+        )
         story.append(Spacer(1, 20))
 
-        story.append(Paragraph("Pricing", styles["heading"]))
         pricing = snapshot.pricing_snapshot
         price_rows: list[list[str]] = [["Base Price", _format_money(pricing.base_price)]]
         for adjustment in pricing.adjustments:
@@ -209,7 +260,11 @@ class ReportLabProposalRenderer:
         if pricing.discount_amount:
             price_rows.append(["Discount", _format_money(-pricing.discount_amount, signed=True)])
 
-        price_table = Table(price_rows, colWidths=[3.7 * inch, 2.0 * inch])
+        # splitByRow=0: this table must never split mid-row across a
+        # page boundary -- a "Base Price ... Subtotal" table missing
+        # its own Final Price on the next page reads as broken, not
+        # just awkward (see Phase 7B spec section 31).
+        price_table = Table(price_rows, colWidths=[3.7 * inch, 2.0 * inch], splitByRow=0)
         price_table.setStyle(
             TableStyle(
                 [
@@ -222,28 +277,43 @@ class ReportLabProposalRenderer:
                 ]
             )
         )
-        story.append(price_table)
-        story.append(Spacer(1, 10))
 
         final_table = Table(
-            [["Final Price", _format_money(pricing.final_price)]], colWidths=[3.7 * inch, 2.0 * inch]
+            [["Final Price", _format_money(pricing.final_price)]],
+            colWidths=[3.7 * inch, 2.0 * inch],
+            splitByRow=0,
         )
         final_table.setStyle(
             TableStyle(
                 [
-                    ("FONTSIZE", (0, 0), (-1, -1), 17),
+                    ("FONTSIZE", (0, 0), (-1, -1), 18),
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-                    ("TEXTCOLOR", (0, 0), (-1, -1), _TEXT),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), _ACCENT),
                     ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
+                    ("LINEABOVE", (0, 0), (-1, 0), 1.2, _ACCENT),
+                    ("TOPPADDING", (0, 0), (-1, -1), 10),
                 ]
             )
         )
-        story.append(final_table)
+
+        # The whole "Pricing" section -- heading through Final Price --
+        # moves to the next page as one block rather than splitting:
+        # Final Price must never be orphaned away from the breakdown
+        # that explains it.
+        story.append(
+            KeepTogether(
+                [
+                    _numbered_heading("03", "Pricing", styles["heading"]),
+                    price_table,
+                    Spacer(1, 10),
+                    final_table,
+                ]
+            )
+        )
         story.append(Spacer(1, 26))
 
         if snapshot.narrative.commercial_notes:
-            story.append(Paragraph("Commercial Notes", styles["heading"]))
+            story.append(_numbered_heading("04", "Commercial Notes", styles["heading"]))
             story.append(Paragraph(_escape(snapshot.narrative.commercial_notes), styles["body"]))
             story.append(Spacer(1, 20))
 
@@ -258,9 +328,12 @@ class ReportLabProposalRenderer:
 
         def _draw_footer(canvas, pdf_doc) -> None:
             canvas.saveState()
+            canvas.setStrokeColor(_RULE)
+            canvas.setLineWidth(0.5)
+            canvas.line(_MARGIN, 0.78 * inch, LETTER[0] - _MARGIN, 0.78 * inch)
             canvas.setFont("Helvetica", 8)
             canvas.setFillColor(_QUIET)
-            canvas.drawString(_MARGIN, 0.6 * inch, "Northstar Pricing Studio")
+            canvas.drawString(_MARGIN, 0.6 * inch, "NORTHSTAR PRICING STUDIO")
             canvas.drawCentredString(
                 LETTER[0] / 2,
                 0.6 * inch,

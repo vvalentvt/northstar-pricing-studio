@@ -1,0 +1,33 @@
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  flex-shrink: 0;
+  color: var(--ns-color-primary);
+}
+
+.wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.name {
+  font-size: var(--ns-text-wordmark-size);
+  font-weight: var(--ns-text-wordmark-weight);
+  letter-spacing: var(--ns-text-wordmark-tracking);
+  color: inherit;
+}
+
+.subtitle {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0.6;
+  margin-top: 2px;
+}

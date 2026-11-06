@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { BrandLockup } from "../brand/BrandLockup";
 import styles from "./AppShell.module.css";
 
 interface AppShellProps {
@@ -29,8 +30,7 @@ export function AppShell({ children }: AppShellProps) {
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <div className={styles.brandTitle}>NORTHSTAR</div>
-          <div className={styles.brandSubtitle}>Pricing Studio</div>
+          <BrandLockup />
         </div>
         <nav className={styles.nav}>
           <NavLink to="/quotes" end className={navLinkClassName}>

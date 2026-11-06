@@ -215,3 +215,57 @@ def test_quote_and_version_and_proposal_id_appear_in_footer():
 
     assert "Q-12345" in text
     assert "P-00001" in text
+
+
+def test_brand_lockup_and_eyebrow_appear_on_the_first_page():
+    pdf_bytes = _render(_snapshot())
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    first_page_text = reader.pages[0].extract_text()
+
+    assert "NORTHSTAR" in first_page_text
+    assert "PRICING STUDIO" in first_page_text
+    assert "PRICING PROPOSAL" in first_page_text
+
+
+def test_section_headings_are_numbered_for_document_orientation():
+    pdf_bytes = _render(_snapshot(narrative=_narrative(commercial_notes="Notes.")))
+    text = _extract_text(pdf_bytes)
+
+    assert "01" in text and "Executive Summary" in text
+    assert "02" in text and "Proposed Solution" in text
+    assert "03" in text and "Pricing" in text
+    assert "04" in text and "Commercial Notes" in text
+
+
+def test_footer_carries_the_northstar_brand_name():
+    pdf_bytes = _render(_snapshot())
+    text = _extract_text(pdf_bytes)
+
+    assert "NORTHSTAR PRICING STUDIO" in text
+
+
+def test_pricing_breakdown_never_splits_across_a_page_boundary():
+    """A proposal long enough to push the Pricing section onto a later
+    page must move the whole section together -- Base Price and Final
+    Price must always land on the same page, never a table split mid-
+    breakdown (the Phase 7B visual QC regression this guards)."""
+    many_adjustments = tuple(
+        AdjustmentSnapshot(name=f"Adjustment {i}", amount=1000 + i, explanation="x")
+        for i in range(12)
+    )
+    pdf_bytes = _render(
+        _snapshot(
+            pricing_snapshot=_pricing(
+                adjustments=many_adjustments, subtotal_before_discount=100000, final_price=100000
+            ),
+            narrative=_narrative(commercial_notes="Notes go here."),
+        )
+    )
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) >= 2
+
+    page_with_final_price = next(
+        page for page in reader.pages if "Final Price" in page.extract_text()
+    )
+    assert "Base Price" in page_with_final_price.extract_text()
+    assert "Adjustment 0" in page_with_final_price.extract_text()
