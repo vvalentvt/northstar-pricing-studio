@@ -1,5 +1,9 @@
 # Northstar Pricing Studio
 
+## Live Demo
+
+**[Launch Northstar Pricing Studio](https://northstar-pricing-studio.onrender.com/quotes)**
+
 **A configurable B2B pricing and negotiation workspace built around explainable pricing, immutable quote history, Budget Fit optimization, and durable proposal generation.**
 
 A flagship portfolio case study exploring how configuration, pricing authority, negotiation, and proposal generation become one governed commercial decision system rather than six disconnected tools.
@@ -202,6 +206,27 @@ Demo environment — use fictional or non-sensitive data. There is no authentica
 - [`docs/adr/`](docs/adr/) — architecture decision records: [ADR-003](docs/adr/003-frontend-api-separation.md) (frontend/API migration, including the now-retired Streamlit prototype), [ADR-004](docs/adr/004-quote-persistence.md) (Quote persistence), [ADR-005](docs/adr/005-negotiation-workspace-persistence.md) (negotiation workspace persistence), [ADR-006](docs/adr/006-proposal-artifacts.md) (Proposal artifacts)
 - [`docs/FRONTEND_SPIKE.md`](docs/FRONTEND_SPIKE.md) — the visual feasibility spike that motivated the frontend migration
 
+
+## Screenshots
+
+### Configure & Pricing Preview
+![Northstar Configure](docs/screenshots/configure.png)
+
+### Review Pricing
+![Northstar Review Pricing](docs/screenshots/review-pricing.png)
+
+### Budget Fit
+![Northstar Budget Fit](docs/screenshots/budget-fit.png)
+
+### Alternatives
+![Northstar Alternatives](docs/screenshots/alternatives.png)
+
+### Proposal
+![Northstar Proposal](docs/screenshots/proposal.png)
+
+
+
 ## Portfolio notes
 
 Northstar Pricing Studio is a fictional product built for a portfolio. It contains no employer-proprietary code, pricing rules, customer data, or terminology. It has no authentication and is not a production system — see `docs/ARCHITECTURE.md` section 15 for the explicit security/portfolio boundaries this project does and does not implement.
+
